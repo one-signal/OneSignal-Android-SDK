@@ -152,13 +152,12 @@ public class PushRegistratorGPS implements PushRegistrator {
    private void registerInBackground(final String googleProjectNumber) {
       new Thread(new Runnable() {
          public void run() {
-            String registrationId = null;
             boolean firedComplete = false;
 
             for (int currentRetry = 0; currentRetry < GCM_RETRY_COUNT; currentRetry++) {
                try {
                   GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(appContext);
-                  registrationId = gcm.register(googleProjectNumber);
+                  String registrationId = gcm.register(googleProjectNumber);
                   OneSignal.Log(OneSignal.LOG_LEVEL.INFO, "Device registered, Google Registration ID = " + registrationId);
                   registeredHandler.complete(registrationId);
                   break;
