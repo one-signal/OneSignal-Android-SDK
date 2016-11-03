@@ -25,9 +25,12 @@ public class OneSignalPackagePrivateHelper {
 
    public static boolean runFocusRunnables() {
       Looper looper = ActivityLifecycleHandler.focusHandlerThread.getHandlerLooper();
-      if (looper == null) return false;
+      if (looper == null)
+         return false;
       
       Scheduler scheduler = shadowOf(looper).getScheduler();
+      if (scheduler == null)
+         return false;
       return scheduler.advanceToLastPostedRunnable();
    }
 

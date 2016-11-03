@@ -78,7 +78,6 @@ import org.robolectric.shadows.ShadowConnectivityManager;
 import org.robolectric.shadows.ShadowLog;
 import org.robolectric.shadows.ShadowSystemClock;
 import org.robolectric.util.ActivityController;
-import org.robolectric.util.Scheduler;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -101,7 +100,7 @@ import static org.robolectric.Shadows.shadowOf;
         constants = BuildConfig.class,
         sdk = 21)
 @RunWith(RobolectricTestRunner.class)
-// Enable to ensure test order to
+// Enable to ensure test order to consistency debug flaky test.
 // @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class MainOneSignalClassRunner {
 
@@ -854,7 +853,6 @@ public class MainOneSignalClassRunner {
 
       GetTags();
 
-      final SharedPreferences prefs2 = blankActivity.getSharedPreferences(OneSignal.class.getSimpleName(), Context.MODE_PRIVATE);
       Assert.assertNull(lastGetTags);
    }
 
@@ -1263,6 +1261,7 @@ public class MainOneSignalClassRunner {
 
    @Test
    @Config(shadows = {ShadowOneSignal.class})
+   @SuppressWarnings("unchecked") // getDeclaredMethod
    public void testLocationTimeout() throws Exception {
       //ShadowApplication.getInstance().grantPermissions(new String[]{"android.permission.YOUR_PERMISSION"});
 
@@ -1444,7 +1443,7 @@ public class MainOneSignalClassRunner {
       return osNotification;
    }
 
-   private static void threadAndTaskWait() throws InterruptedException {
+   private static void threadAndTaskWait() throws Exception {
       boolean createdNewThread;
       do {
          createdNewThread = false;
