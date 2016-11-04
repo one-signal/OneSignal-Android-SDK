@@ -922,19 +922,22 @@ public class MainOneSignalClassRunner {
    @Test
    public void shouldSaveToSyncIfKilledBeforeDelayedCompare() throws Exception {
       OneSignalInit();
+      threadAndTaskWait();
       OneSignal.sendTag("key", "value");
 
+      // Swipe app away from Recent Apps list, should save unsynced data.
       OneSignalPackagePrivateHelper.SyncService_onTaskRemoved();
       OneSignalPackagePrivateHelper.resetRunnables();
-      StaticResetHelper.restSetStaticFields();
-      threadAndTaskWait();
-      // Only for awl
-      Assert.assertEquals(1, ShadowOneSignalRestClient.networkCallCount);
 
-      StaticResetHelper.restSetStaticFields();
+      // Network call for android params and player create should have been made.
+      Assert.assertEquals(2, ShadowOneSignalRestClient.networkCallCount);
 
+      // App is re-opened.
+      StaticResetHelper.restSetStaticFields();
       OneSignalInit();
       threadAndTaskWait();
+
+      // Un-synced tag should now sync.
       Assert.assertEquals("value", ShadowOneSignalRestClient.lastPost.getJSONObject("tags").getString("key"));
    }
 
