@@ -144,6 +144,7 @@ public class MainOneSignalClassRunner {
       callBackUseId = getCallBackRegId = null;
       StaticResetHelper.restSetStaticFields();
 
+      ShadowOneSignalRestClient.lastPost = null;
       ShadowOneSignalRestClient.nextSuccessResponse = null;
       ShadowOneSignalRestClient.failNext = false;
       ShadowOneSignalRestClient.failNextPut = false;
@@ -487,7 +488,7 @@ public class MainOneSignalClassRunner {
    public void testUnsubscribeStatusShouldBeSetIfGCMErrored() throws Exception {
       ShadowPushRegistratorGPS.fail = true;
       OneSignalInit();
-      threadAndTaskWait(); threadAndTaskWait();
+      threadAndTaskWait();
       Assert.assertEquals(-7, ShadowOneSignalRestClient.lastPost.getInt("notification_types"));
    }
 
