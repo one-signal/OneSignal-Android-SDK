@@ -3,6 +3,7 @@ package com.test.onesignal;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import com.onesignal.OneSignalDbHelper;
 import com.onesignal.OneSignalPackagePrivateHelper;
@@ -19,6 +20,7 @@ import com.onesignal.ShadowOSWebView;
 import com.onesignal.ShadowOneSignalDbHelper;
 import com.onesignal.ShadowOneSignalRestClient;
 import com.onesignal.ShadowOneSignalRestClientWithMockConnection;
+import com.onesignal.OneSignalShadowPackageManager;
 import com.onesignal.ShadowPushRegistratorGCM;
 import com.onesignal.StaticResetHelper;
 
@@ -27,7 +29,6 @@ import junit.framework.Assert;
 import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowApplication;
-import org.robolectric.shadows.ShadowSystemClock;
 import org.robolectric.util.Scheduler;
 
 import java.util.ArrayList;
@@ -73,6 +74,8 @@ public class TestHelpers {
       ShadowDynamicTimer.resetStatics();
 
       ShadowOSWebView.resetStatics();
+
+      OneSignalShadowPackageManager.resetStatics();
 
       lastException = null;
    }
@@ -204,7 +207,7 @@ public class TestHelpers {
       stopAllOSThreads();
       flushBufferedSharedPrefs();
       StaticResetHelper.restSetStaticFields();
-      ShadowSystemClock.setCurrentTimeMillis(System.currentTimeMillis() + 1_000 * 31 * sessionCountOffset++);
+      SystemClock.setCurrentTimeMillis(System.currentTimeMillis() + 1_000 * 31 * sessionCountOffset++);
    }
 
    static ArrayList<HashMap<String, Object>> getAllNotificationRecords() {
@@ -243,7 +246,7 @@ public class TestHelpers {
    }
 
    static void advanceTimeByMs(long advanceBy) {
-      ShadowSystemClock.setCurrentTimeMillis(System.currentTimeMillis() +  advanceBy);
+      SystemClock.setCurrentTimeMillis(System.currentTimeMillis() +  advanceBy);
    }
 
    public static void assertMainThread() {

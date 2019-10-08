@@ -41,8 +41,8 @@ import android.database.sqlite.SQLiteDatabase;
 import android.location.Location;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.os.SystemClock;
 
-import com.onesignal.BuildConfig;
 import com.onesignal.OSEmailSubscriptionObserver;
 import com.onesignal.OSEmailSubscriptionState;
 import com.onesignal.OSEmailSubscriptionStateChanges;
@@ -75,6 +75,7 @@ import com.onesignal.ShadowNotificationManagerCompat;
 import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOneSignal;
 import com.onesignal.ShadowOneSignalRestClient;
+import com.onesignal.OneSignalShadowPackageManager;
 import com.onesignal.ShadowPushRegistratorGCM;
 import com.onesignal.ShadowRoboNotificationManager;
 import com.onesignal.StaticResetHelper;
@@ -100,7 +101,6 @@ import org.robolectric.shadows.ShadowAlarmManager;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowConnectivityManager;
 import org.robolectric.shadows.ShadowLog;
-import org.robolectric.shadows.ShadowSystemClock;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -137,19 +137,21 @@ import static org.junit.Assert.assertThat;
 import static org.robolectric.Shadows.shadowOf;
 
 @Config(packageName = "com.onesignal.example",
+        instrumentedPackages = { "com.onesignal" },
         shadows = {
-           ShadowOneSignalRestClient.class,
-           ShadowPushRegistratorGCM.class,
-           ShadowOSUtils.class,
-           ShadowAdvertisingIdProviderGPS.class,
-           ShadowCustomTabsClient.class,
-           ShadowCustomTabsSession.class,
-           ShadowNotificationManagerCompat.class,
-           ShadowJobService.class
+            ShadowOneSignalRestClient.class,
+            ShadowPushRegistratorGCM.class,
+            ShadowOSUtils.class,
+            ShadowAdvertisingIdProviderGPS.class,
+            ShadowCustomTabsClient.class,
+            ShadowCustomTabsSession.class,
+            ShadowNotificationManagerCompat.class,
+            ShadowJobService.class,
+            OneSignalShadowPackageManager.class
         },
-        instrumentedPackages = {"com.onesignal"},
-        constants = BuildConfig.class,
-        sdk = 21)
+        sdk = 21
+)
+
 @RunWith(RobolectricTestRunner.class)
 // Enable to ensure test order to consistency debug flaky test.
 // @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -260,7 +262,7 @@ public class MainOneSignalClassRunner {
     * 4. Comparison of PermissionsActivity to dummy PermissionsActivity (2nd Test Case)
     */
    @Test
-   @Config(manifest = "AndroidManifest_LocationPrivacyConsent.xml", sdk = 26)
+   @Config(sdk = 26)
    public void testLocationPermissionPromptWithPrivacyConsent() throws Exception {
       OneSignal.setRequiresUserPrivacyConsent(true);
       OneSignal.getCurrentOrNewInitBuilder().autoPromptLocation(true);
@@ -295,7 +297,7 @@ public class MainOneSignalClassRunner {
       // Make sure onAppFocus does not move past privacy consent check and on_session is not called
       blankActivityController.pause();
       threadAndTaskWait();
-      ShadowSystemClock.setCurrentTimeMillis(60 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(60 * 60 * 1000);
 
       blankActivityController.resume();
       threadAndTaskWait();
@@ -310,7 +312,7 @@ public class MainOneSignalClassRunner {
       // Pause app and wait enough time to trigger on_session
       blankActivityController.pause();
       threadAndTaskWait();
-      ShadowSystemClock.setCurrentTimeMillis(121 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(121 * 60 * 1000);
 
       // Call onAppFocus and check that the last url is a on_session request
       blankActivityController.resume();
@@ -358,7 +360,7 @@ public class MainOneSignalClassRunner {
    @Test
    public void testOnSessionCalledOnlyOncePer30Sec() throws Exception {
       // Will call create
-      ShadowSystemClock.setCurrentTimeMillis(60 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(60 * 60 * 1000);
       OneSignalInit();
       threadAndTaskWait();
       blankActivityController.resume();
@@ -383,7 +385,7 @@ public class MainOneSignalClassRunner {
 
       blankActivityController.pause();
       threadAndTaskWait();
-      ShadowSystemClock.setCurrentTimeMillis(121 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(121 * 60 * 1000);
       ShadowOneSignalRestClient.lastUrl = null;
       blankActivityController.resume();
       threadAndTaskWait();
@@ -393,7 +395,7 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void testAlwaysUseRemoteProjectNumberOverLocal() throws Exception {
-      ShadowSystemClock.setCurrentTimeMillis(60 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(60 * 60 * 1000);
 
       OneSignalInit();
       threadAndTaskWait();
@@ -404,7 +406,7 @@ public class MainOneSignalClassRunner {
 
       blankActivityController.pause();
       threadAndTaskWait();
-      ShadowSystemClock.setCurrentTimeMillis(121 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(121 * 60 * 1000);
       blankActivityController.resume();
       threadAndTaskWait();
 
@@ -416,7 +418,7 @@ public class MainOneSignalClassRunner {
    @Test
    public void testPutStillCalledOnChanges() throws Exception {
       // Will call create
-      ShadowSystemClock.setCurrentTimeMillis(60 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(60 * 60 * 1000);
       OneSignalInit();
       threadAndTaskWait();
       blankActivityController.resume();
@@ -513,7 +515,7 @@ public class MainOneSignalClassRunner {
    @Test
    public void testPutCallsMadeWhenUserStateChangesOnAppResume() throws Exception {
       // Will call create
-      ShadowSystemClock.setCurrentTimeMillis(60 * 60 * 1000);
+      SystemClock.setCurrentTimeMillis(60 * 60 * 1000);
       OneSignalInit();
       threadAndTaskWait();
       blankActivityController.resume();
@@ -647,9 +649,11 @@ public class MainOneSignalClassRunner {
       assertNull(shadowOf(blankActivity).getNextStartedActivity());
    }
 
-   @Config(manifest= "AndroidManifest_DefaultOpenDisabled.xml")
    @Test
    public void testOpeningLaunchUrlWithDisableDefault() throws Exception {
+      // Add the 'com.onesignal.NotificationOpened.DEFAULT' as 'DISABLE' meta-data tag
+      OneSignalShadowPackageManager.addManifestMetaData("com.onesignal.NotificationOpened.DEFAULT", "DISABLE");
+
       // Removes app launch
       shadowOf(blankActivity).getNextStartedActivity();
 
@@ -659,9 +663,11 @@ public class MainOneSignalClassRunner {
       assertNull(shadowOf(blankActivity).getNextStartedActivity());
    }
 
-   @Config(manifest= "AndroidManifest_DefaultOpenDisabled.xml")
    @Test
    public void testDisableOpeningLauncherActivityOnNotifiOpen() throws Exception {
+      // Add the 'com.onesignal.NotificationOpened.DEFAULT' as 'DISABLE' meta-data tag
+      OneSignalShadowPackageManager.addManifestMetaData("com.onesignal.NotificationOpened.DEFAULT", "DISABLE");
+
       // From app launching normally
       assertNotNull(shadowOf(blankActivity).getNextStartedActivity());
       OneSignal.init(blankActivity, "123456789", ONESIGNAL_APP_ID, getNotificationOpenedHandler());
@@ -2087,7 +2093,7 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       // 2. Wait 2 minutes
-      ShadowSystemClock.setCurrentTimeMillis(120_000);
+      SystemClock.setCurrentTimeMillis(120_000);
 
       // 3. Put app in background
       blankActivityController.pause();
@@ -2135,7 +2141,7 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       // 2. Wait 2 minutes
-      ShadowSystemClock.setCurrentTimeMillis(120_000);
+      SystemClock.setCurrentTimeMillis(120_000);
 
       // 3. Put app in background, simulating network issue.
       ShadowOneSignalRestClient.failAll = true;
@@ -2194,7 +2200,7 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       // 2. Wait 2 minutes
-      ShadowSystemClock.setCurrentTimeMillis(120_000);
+      SystemClock.setCurrentTimeMillis(120_000);
 
       // 3. Put app in background
       ShadowOneSignalRestClient.freezeResponses = true;
@@ -2255,7 +2261,7 @@ public class MainOneSignalClassRunner {
 
    // ####### DeleteTags Tests ######
    @Test
-   public void testDeleteTagWithNonexistingKey() throws Exception {
+   public void testDeleteTagWithNonexistingKey() {
       OneSignalInit();
       OneSignal.deleteTag("int");
    }
@@ -2479,7 +2485,7 @@ public class MainOneSignalClassRunner {
       OneSignalInit();
       threadAndTaskWait();
       blankActivityController.resume();
-      ShadowSystemClock.setCurrentTimeMillis(60 * 1000);
+      SystemClock.setCurrentTimeMillis(60 * 1000);
 
       blankActivityController.pause();
       threadAndTaskWait();
@@ -2494,7 +2500,7 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       blankActivityController.resume();
-      ShadowSystemClock.setCurrentTimeMillis(60 * 1000);
+      SystemClock.setCurrentTimeMillis(60 * 1000);
       blankActivityController.pause();
       threadAndTaskWait();
 
@@ -2523,7 +2529,7 @@ public class MainOneSignalClassRunner {
       // Provide consent to OneSignal SDK amd forward time 2 minutes
       OneSignal.provideUserConsent(true);
       threadAndTaskWait();
-      ShadowSystemClock.setCurrentTimeMillis(120_000);
+      SystemClock.setCurrentTimeMillis(120_000);
       blankActivityController.pause();
       threadAndTaskWait();
 
@@ -2614,7 +2620,7 @@ public class MainOneSignalClassRunner {
    }
 
    @Test
-   public void shouldReturnCorrectConsentRequiredStatus() throws Exception {
+   public void shouldReturnCorrectConsentRequiredStatus() {
       OneSignal.setRequiresUserPrivacyConsent(true);
 
       OneSignalInit();
@@ -2798,7 +2804,7 @@ public class MainOneSignalClassRunner {
    @Config(shadows = {ShadowOneSignal.class})
    @SuppressWarnings("unchecked") // getDeclaredMethod
    public void testLocationTimeout() throws Exception {
-      //ShadowApplication.getInstance().grantPermissions(new String[]{"android.permission.YOUR_PERMISSION"});
+//      ShadowApplication.getInstance().grantPermissions(new String[]{"android.permission.YOUR_PERMISSION"});
 
       OneSignalInit();
       threadAndTaskWait();
@@ -3659,10 +3665,12 @@ public class MainOneSignalClassRunner {
     * Using this AndroidManifest setup to test that a config setting is detectable
     */
    @Test
-   @Config(manifest = "AndroidManifest_OrientationConfigChange.xml")
    public void testAndroidManifestConfigChangeFlags_orientationFlag() throws Exception {
       OneSignalInit();
       threadAndTaskWait();
+
+      // Set ActivityInfo.CONFIG_ORIENTATION configChanges flag
+      OneSignalShadowPackageManager.configChanges = ActivityInfo.CONFIG_ORIENTATION;
 
       // Verify BlankActivity has orientation flag
       boolean blankHasFlag = OneSignalPackagePrivateHelper.hasConfigChangeFlag(blankActivity, ActivityInfo.CONFIG_ORIENTATION);
@@ -3671,6 +3679,9 @@ public class MainOneSignalClassRunner {
       // Go to MainActivity
       Intent mainIntent = new Intent(blankActivity, MainActivity.class);
       Activity mainActivity = Robolectric.buildActivity(MainActivity.class).newIntent(mainIntent).create().get();
+
+      // Set no configChanges flags
+      OneSignalShadowPackageManager.configChanges = 0;
 
       // Verify MainActivity has no orientation flag
       boolean mainHasFlag = OneSignalPackagePrivateHelper.hasConfigChangeFlag(mainActivity, ActivityInfo.CONFIG_ORIENTATION);
