@@ -29,6 +29,7 @@ import junit.framework.Assert;
 import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.shadows.ShadowSystemClock;
 import org.robolectric.util.Scheduler;
 
 import java.util.ArrayList;
@@ -45,6 +46,8 @@ public class TestHelpers {
       OneSignalPackagePrivateHelper.OneSignalPrefs.initializePool();
       if (!ranBeforeTestSuite)
          return;
+
+      resetSystemClock();
 
       stopAllOSThreads();
 
@@ -202,12 +205,12 @@ public class TestHelpers {
       flushBufferedSharedPrefs();
       StaticResetHelper.restSetStaticFields();
    }
-   private static int sessionCountOffset = 1;
+
    static void restartAppAndElapseTimeToNextSession() throws Exception {
       stopAllOSThreads();
       flushBufferedSharedPrefs();
       StaticResetHelper.restSetStaticFields();
-      SystemClock.setCurrentTimeMillis(System.currentTimeMillis() + 1_000 * 31 * sessionCountOffset++);
+      advanceSystemTimeBy(31 * 1000L);
    }
 
    static ArrayList<HashMap<String, Object>> getAllNotificationRecords() {
@@ -245,8 +248,12 @@ public class TestHelpers {
       return mapList;
    }
 
-   static void advanceTimeByMs(long advanceBy) {
-      SystemClock.setCurrentTimeMillis(System.currentTimeMillis() +  advanceBy);
+   static void resetSystemClock() {
+      SystemClock.setCurrentTimeMillis(System.currentTimeMillis());
+   }
+
+   static void advanceSystemTimeBy(long millis) {
+      SystemClock.setCurrentTimeMillis(ShadowSystemClock.currentTimeMillis() + millis);
    }
 
    public static void assertMainThread() {
