@@ -3632,7 +3632,10 @@ public class MainOneSignalClassRunner {
             OneSignal.getTags(new OneSignal.GetTagsHandler() {
                @Override
                public void tagsAvailable(JSONObject tags) {
-                  executed = true;
+                  synchronized (this) {
+                     executed = true;
+                     this.notifyAll();
+                  }
                }
             });
          }
@@ -3650,6 +3653,9 @@ public class MainOneSignalClassRunner {
       OneSignal.getTags(first);
       OneSignal.getTags(second);
       threadAndTaskWait();
+      // TODO: Need a clean up if this is stable
+      synchronized (first) { try { if (!first.executed) first.wait(); } catch (InterruptedException e) {} }
+      synchronized (second) { try { if (!second.executed) second.wait(); } catch (InterruptedException e) {} }
 
       assertTrue(first.executed);
       assertTrue(second.executed);
