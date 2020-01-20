@@ -73,8 +73,10 @@ import static junit.framework.Assert.assertTrue;
 public class InAppMessagingUnitTests {
 
     private static final double REQUIRED_TIMER_ACCURACY = 1.25;
-    private static OSTestInAppMessage message;
+    private static final int LIMIT = 5;
+    private static final long DELAY = 60;
 
+    private static OSTestInAppMessage message;
 
     @SuppressLint("StaticFieldLeak")
     private static Activity blankActivity;
@@ -151,6 +153,31 @@ public class InAppMessagingUnitTests {
     public void testBuiltMessageVariants() {
         assertEquals(message.variants.get("android").get("es"), InAppMessagingHelpers.TEST_SPANISH_ANDROID_VARIANT_ID);
         assertEquals(message.variants.get("android").get("en"), InAppMessagingHelpers.TEST_ENGLISH_ANDROID_VARIANT_ID);
+    }
+
+    @Test
+    public void testBuiltMessageReDisplay() throws JSONException {
+        OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWitRedisplay(
+                LIMIT,
+                DELAY
+        );
+        assertTrue(message.isReDisplayEnabled());
+        assertEquals(message.getDisplaysLimit(), LIMIT);
+        assertEquals(message.getDelay(), DELAY);
+        assertEquals(message.getLastDisplayTime(), -1);
+        assertEquals(message.getDisplaysQuantity(), 0);
+
+        OSTestInAppMessage messageWithoutDisplay = InAppMessagingHelpers.buildTestMessageWithSingleTrigger(
+                OSTriggerKind.SESSION_TIME,
+                null,
+                OSTriggerOperator.GREATER_THAN_OR_EQUAL_TO.toString(),
+                3
+        );
+        assertFalse(messageWithoutDisplay.isReDisplayEnabled());
+        assertEquals(messageWithoutDisplay.getDisplaysLimit(), Integer.MAX_VALUE);
+        assertEquals(messageWithoutDisplay.getDelay(), 0);
+        assertEquals(messageWithoutDisplay.getLastDisplayTime(), -1);
+        assertEquals(messageWithoutDisplay.getDisplaysQuantity(), 0);
     }
 
     @Test
