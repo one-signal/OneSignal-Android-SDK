@@ -571,10 +571,16 @@ public class OneSignal {
 
    public static void setNotificationWillShowInForegroundHandler(NotificationWillShowInForegroundHandler callback) {
       notificationWillShowInForegroundHandler = callback;
+
+      if (appId != null && appContext != null)
+         init();
    }
 
    public static void setNotificationOpenedHandler(NotificationOpenedHandler callback) {
       notificationOpenedHandler = callback;
+
+      if (appId != null && appContext != null)
+         init();
    }
 
    public static void setInAppMessageClickHandler(InAppMessageClickHandler callback) {
@@ -590,6 +596,8 @@ public class OneSignal {
       if (requiresUserPrivacyConsent()) {
          OneSignal.Log(LOG_LEVEL.WARN, "OneSignal SDK initialization delayed, user privacy consent is set to required for this application.");
          delayedInitParams = new DelayedConsentInitializationParameters(appContext, googleProjectNumber, appId, notificationWillShowInForegroundHandler, notificationOpenedHandler);
+         // Set app id null since OneSignal was not init fully
+         appId = null;
          return;
       }
 
@@ -2652,7 +2660,7 @@ public class OneSignal {
       runCancelGroupedNotifications.run();
    }
 
-   public static void removeNotificationReceivedHandler() {
+   public static void removeNotificationWillShowInForegroundHandler() {
       notificationWillShowInForegroundHandler = null;
    }
 
