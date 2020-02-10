@@ -87,13 +87,10 @@ class OSInAppMessageDisplayStats {
     }
 
     boolean isDelayTimeSatisfied() {
-        long currentTimeInSeconds = System.currentTimeMillis() / 1000;
-
         if (lastDisplayTime < 0) {
-            lastDisplayTime = currentTimeInSeconds;
             return true;
         }
-
+        long currentTimeInSeconds = System.currentTimeMillis() / 1000;
         //Calculate gap between display times
         long diffInSeconds = currentTimeInSeconds - lastDisplayTime;
         OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "OSInAppMessage lastDisplayTime: " + lastDisplayTime +

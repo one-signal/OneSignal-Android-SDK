@@ -15,32 +15,24 @@ import java.util.Set;
 
 class OSInAppMessageRepository {
 
+    private static final long SIX_MONTHS_TIME_SECONDS = 6 * 30 * 24 * 60 * 60;
     private final OneSignalDbHelper dbHelper;
 
     OSInAppMessageRepository(OneSignalDbHelper dbHelper) {
         this.dbHelper = dbHelper;
     }
 
+    /**
+     * Remove IAMs that the last display time was six month ago
+     */
     @WorkerThread
-    synchronized void deleteInAppMessage(String messageId) {
+    synchronized void deleteOldRedisplayedInAppMessages() {
+        long sixMonthsAgo = System.currentTimeMillis() / 1000 - SIX_MONTHS_TIME_SECONDS;
         SQLiteDatabase writableDb = dbHelper.getWritableDbWithRetries();
-
-        try {
-            writableDb.beginTransaction();
-            writableDb.delete(OneSignalDbContract.InAppMessageTable.TABLE_NAME,
-                    OneSignalDbContract.InAppMessageTable.COLUMN_NAME_MESSAGE_ID + " = ?", new String[]{messageId});
-            writableDb.setTransactionSuccessful();
-        } catch (Throwable t) {
-            OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error deleting in app message! ", t);
-        } finally {
-            if (writableDb != null) {
-                try {
-                    writableDb.endTransaction(); // May throw if transaction was never opened or DB is full.
-                } catch (Throwable t) {
-                    OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error closing transaction! ", t);
-                }
-            }
-        }
+        writableDb.delete(OneSignalDbContract.InAppMessageTable.TABLE_NAME,
+                OneSignalDbContract.InAppMessageTable.COLUMN_NAME_LAST_DISPLAY + "<?",
+                new String[]{String.valueOf(sixMonthsAgo)});
+        writableDb.close();
     }
 
     @WorkerThread
@@ -61,7 +53,7 @@ class OSInAppMessageRepository {
     }
 
     @WorkerThread
-    synchronized List<OSInAppMessage> getAllInAppMessages() {
+    synchronized List<OSInAppMessage> getRedisplayedInAppMessages() {
         List<OSInAppMessage> iams = new ArrayList<>();
         Cursor cursor = null;
 
