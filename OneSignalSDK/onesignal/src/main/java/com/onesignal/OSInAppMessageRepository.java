@@ -3,6 +3,7 @@ package com.onesignal;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Process;
 import android.support.annotation.WorkerThread;
 
 import org.json.JSONArray;
@@ -15,10 +16,32 @@ import java.util.Set;
 
 class OSInAppMessageRepository {
 
+    private static final String OS_SAVE_IN_APP_MESSAGE = "OS_SAVE_IN_APP_MESSAGE_";
     private final OneSignalDbHelper dbHelper;
 
     OSInAppMessageRepository(OneSignalDbHelper dbHelper) {
         this.dbHelper = dbHelper;
+    }
+
+    List<OSInAppMessage> updateInAppMessage(List<OSInAppMessage> messages, List<OSInAppMessage> savedMessages) {
+        List<OSInAppMessage> newSavedMessage = new ArrayList<>(savedMessages);
+
+        for (OSInAppMessage savedMessage : savedMessages) {
+            if (!messages.contains(savedMessage)) {
+                newSavedMessage.remove(savedMessage);
+                final String idToRemove = savedMessage.messageId;
+                // this will be update to coroutines if not refactor to thread thread pool executor to not excess the thread capacity
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Thread.currentThread().setPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                        deleteInAppMessage(idToRemove);
+                    }
+                }, OS_SAVE_IN_APP_MESSAGE + idToRemove).start();
+            }
+        }
+
+        return newSavedMessage;
     }
 
     @WorkerThread
