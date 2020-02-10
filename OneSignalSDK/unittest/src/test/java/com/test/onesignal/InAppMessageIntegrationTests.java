@@ -2,9 +2,12 @@ package com.test.onesignal;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
 
 import com.onesignal.InAppMessagingHelpers;
 import com.onesignal.OneSignal;
+import com.onesignal.OneSignalDbHelper;
 import com.onesignal.OneSignalPackagePrivateHelper;
 import com.onesignal.OneSignalPackagePrivateHelper.OSInAppMessageController;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestInAppMessage;
@@ -19,6 +22,7 @@ import com.onesignal.ShadowOSInAppMessageController;
 import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOSViewUtils;
 import com.onesignal.ShadowOSWebView;
+import com.onesignal.ShadowOneSignalDbHelper;
 import com.onesignal.ShadowOneSignalRestClient;
 import com.onesignal.ShadowPushRegistratorGCM;
 import com.onesignal.StaticResetHelper;
@@ -38,6 +42,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLog;
@@ -46,6 +51,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -572,7 +578,7 @@ public class InAppMessageIntegrationTests {
         // Init OneSignal with IAM with redisplay
         OneSignalInit();
         threadAndTaskWait();
-        
+
         // Add trigger to make IAM display
         OneSignal.addTrigger("test_1", 2);
         assertEquals(1, ShadowOSInAppMessageController.displayedMessages.size());
@@ -880,6 +886,54 @@ public class InAppMessageIntegrationTests {
         // Call IAM clicked again, ensure a 3nd network call isn't made.
         assertEquals("in_app_messages/" + message.messageId + "/click", secondIAMClickRequest.url);
         assertEquals(4, ShadowOneSignalRestClient.requests.size());
+    }
+
+    @Test
+    public void testInAppMessageRedisplayCacheUpdate() throws Exception {
+        SQLiteDatabase writableDatabase = OneSignalDbHelper.getInstance(RuntimeEnvironment.application).getWritableDatabase();
+
+        final OSTestInAppMessage inAppMessage = InAppMessagingHelpers.buildTestMessageWithSingleTriggerAndRedisplay(
+                OSTriggerKind.CUSTOM,"test_saved", OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2, LIMIT, DELAY);
+
+        ContentValues values = new ContentValues();
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_MESSAGE_ID, inAppMessage.messageId);
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_DISPLAY_QUANTITY, inAppMessage.getDisplayStats().getDisplayQuantity());
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_LAST_DISPLAY, inAppMessage.getDisplayStats().getLastDisplayTime());
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_CLICK_IDS, inAppMessage.getClickedClickIds().toString());
+
+        writableDatabase.insert(OneSignalPackagePrivateHelper.InAppMessageTable.TABLE_NAME, null, values);
+        writableDatabase.close();
+
+        List<OSTestInAppMessage> savedInAppMessages = TestHelpers.getAllInAppMessages();
+
+        assertEquals(savedInAppMessages.size(), 1);
+
+        final OSTestInAppMessage message1 = InAppMessagingHelpers.buildTestMessageWithSingleTriggerAndRedisplay(
+                OSTriggerKind.CUSTOM,"test_1", OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2, LIMIT, DELAY);
+        final OSTestInAppMessage message2 = InAppMessagingHelpers.buildTestMessageWithSingleTriggerAndRedisplay(
+                OSTriggerKind.CUSTOM,"test_2", OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2, LIMIT, DELAY);
+
+        setMockRegistrationResponseWithMessages(new ArrayList<OSTestInAppMessage>() {{
+            add(message1);
+            add(message2);
+        }});
+
+        // Init OneSignal with IAM with redisplay
+        OneSignalInit();
+        threadAndTaskWait();
+
+        List<OSTestInAppMessage> savedInAppMessagesAfterInit = TestHelpers.getAllInAppMessages();
+        assertEquals(savedInAppMessagesAfterInit.size(), 0);
+
+
+        // Set same trigger, should display again
+        OneSignal.addTrigger("test_1", 2);
+        OneSignalPackagePrivateHelper.dismissCurrentMessage();
+        threadAndTaskWait();
+
+        List<OSTestInAppMessage> savedInAppMessagesAfterDismissedIAMWithRedisplay = TestHelpers.getAllInAppMessages();
+        assertEquals(savedInAppMessagesAfterDismissedIAMWithRedisplay.size(), 1);
+        assertEquals(savedInAppMessagesAfterDismissedIAMWithRedisplay.get(0).messageId, message1.messageId);
     }
 
     @Test

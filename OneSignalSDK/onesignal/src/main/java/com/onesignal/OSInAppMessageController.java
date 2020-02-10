@@ -52,7 +52,8 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
     // Ordered IAMs queued to display, includes the message currently displaying, if any.
     @NonNull final ArrayList<OSInAppMessage> messageDisplayQueue;
     // IAMs displayed with last displayed time and quantity of displays data
-    @NonNull private List<OSInAppMessage> displayedMessagesData;
+    // This is retrieved from a DB Table that take care of each object to be unique
+    @NonNull private List<OSInAppMessage> redisplayInAppMessages;
 
     private boolean inAppMessagingEnabled = true;
 
@@ -119,9 +120,9 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
 
     void initRedisplayData(OneSignalDbHelper dbInstance) {
         inAppMessageRepository = new OSInAppMessageRepository(dbInstance);
-        displayedMessagesData = inAppMessageRepository.getAllInAppMessages();
+        redisplayInAppMessages = inAppMessageRepository.getAllInAppMessages();
 
-        OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "displayedMessagesData: " + displayedMessagesData.toString());
+        OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "redisplayInAppMessages: " + redisplayInAppMessages.toString());
     }
 
     // Normally we wait until on_session call to download the latest IAMs
@@ -142,7 +143,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             return;
 
         try {
-            processInAppMessageJson(new JSONArray(cachedIamsStr));
+            setMessages(processInAppMessageJson(new JSONArray(cachedIamsStr)));
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -154,16 +155,26 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         // Cache copy for quick cold starts
         OneSignalPrefs.saveString(OneSignalPrefs.PREFS_ONESIGNAL,
            OneSignalPrefs.PREFS_OS_CACHED_IAMS, json.toString());
-        processInAppMessageJson(json);
+        ArrayList<OSInAppMessage> newMessages = processInAppMessageJson(json);
+
+        List<OSInAppMessage> updatedRedisplayMessages = inAppMessageRepository.updateInAppMessage(newMessages, redisplayInAppMessages);
+        if (redisplayInAppMessages.size() != updatedRedisplayMessages.size()) {
+            redisplayInAppMessages = updatedRedisplayMessages;
+        }
+        setMessages(newMessages);
     }
 
-    private void processInAppMessageJson(@NonNull JSONArray json) throws JSONException {
+    private ArrayList<OSInAppMessage>  processInAppMessageJson(@NonNull JSONArray json) throws JSONException {
         ArrayList<OSInAppMessage> newMessages = new ArrayList<>();
         for (int i = 0; i < json.length(); i++) {
             JSONObject messageJson = json.getJSONObject(i);
             OSInAppMessage message = new OSInAppMessage(messageJson);
             newMessages.add(message);
         }
+        return newMessages;
+    }
+
+    private void setMessages( ArrayList<OSInAppMessage> newMessages) {
         messages = newMessages;
 
         evaluateInAppMessages();
@@ -353,12 +364,12 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             return;
 
         boolean messageDismissed = dismissedMessages.contains(message.messageId);
-        int index = displayedMessagesData.indexOf(message);
+        int index = redisplayInAppMessages.indexOf(message);
 
         if (messageDismissed && index != -1) {
             OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "setDataForRedisplay: " + message.messageId);
 
-            OSInAppMessage savedIAM = displayedMessagesData.get(index);
+            OSInAppMessage savedIAM = redisplayInAppMessages.get(index);
             message.getDisplayStats().setDisplayStats(savedIAM.getDisplayStats());
 
             // Check if conditions are correct for redisplay
@@ -472,14 +483,14 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
 
         //Update the data to enable future re displays
         //Avoid calling the repository data again
-        int index = displayedMessagesData.indexOf(message);
+        int index = redisplayInAppMessages.indexOf(message);
         if (index != -1) {
-            displayedMessagesData.set(index, message);
+            redisplayInAppMessages.set(index, message);
         } else {
-            displayedMessagesData.add(message);
+            redisplayInAppMessages.add(message);
         }
 
-        OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "persisIAMessageForRedisplay: " + message.toString() + " with msg array data: " + displayedMessagesData.toString());
+        OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "persisIAMessageForRedisplay: " + message.toString() + " with msg array data: " + redisplayInAppMessages.toString());
     }
 
     // Calculate all dismissed as dismissedMessages minus any in the display queue
@@ -572,7 +583,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
      * */
     private void checkTriggerChanged(Collection<String> newTriggersKeys) {
         for (OSInAppMessage message : messages) {
-            if (displayedMessagesData.contains(message) &&
+            if (redisplayInAppMessages.contains(message) &&
                     triggerController.isTriggerOnMessage(message, newTriggersKeys)) {
                 message.setTriggerChanged(true);
             }
