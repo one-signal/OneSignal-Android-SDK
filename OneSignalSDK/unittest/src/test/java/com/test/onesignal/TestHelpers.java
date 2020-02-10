@@ -7,15 +7,16 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Looper;
-import android.support.annotation.Nullable;
 import android.os.SystemClock;
+import android.support.annotation.Nullable;
 
 import com.onesignal.OneSignalDbHelper;
 import com.onesignal.OneSignalPackagePrivateHelper;
-import com.onesignal.OneSignalPackagePrivateHelper.OSSessionManager;
-import com.onesignal.OneSignalPackagePrivateHelper.OneSignalPrefs;
 import com.onesignal.OneSignalPackagePrivateHelper.CachedUniqueOutcomeNotification;
+import com.onesignal.OneSignalPackagePrivateHelper.OSSessionManager;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestInAppMessage;
+import com.onesignal.OneSignalPackagePrivateHelper.OneSignalPrefs;
+import com.onesignal.OneSignalShadowPackageManager;
 import com.onesignal.OutcomeEvent;
 import com.onesignal.ShadowCustomTabsClient;
 import com.onesignal.ShadowDynamicTimer;
@@ -29,7 +30,6 @@ import com.onesignal.ShadowOSWebView;
 import com.onesignal.ShadowOneSignalDbHelper;
 import com.onesignal.ShadowOneSignalRestClient;
 import com.onesignal.ShadowOneSignalRestClientWithMockConnection;
-import com.onesignal.OneSignalShadowPackageManager;
 import com.onesignal.ShadowPushRegistratorGCM;
 import com.onesignal.StaticResetHelper;
 
@@ -354,6 +354,7 @@ public class TestHelpers {
             String clickIds = cursor.getString(cursor.getColumnIndex(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_CLICK_IDS));
             int displayQuantity = cursor.getInt(cursor.getColumnIndex(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_DISPLAY_QUANTITY));
             long lastDisplay = cursor.getLong(cursor.getColumnIndex(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_LAST_DISPLAY));
+            boolean displayed = cursor.getInt(cursor.getColumnIndex(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_DISPLAYED)) == 1;
 
             JSONArray clickIdsArray = new JSONArray(clickIds);
             Set<String> clickIdsSet = new HashSet<>();
@@ -362,7 +363,7 @@ public class TestHelpers {
                clickIdsSet.add(clickIdsArray.getString(i));
             }
 
-            OSTestInAppMessage inAppMessage = new OSTestInAppMessage(messageId, displayQuantity, lastDisplay, clickIdsSet);
+            OSTestInAppMessage inAppMessage = new OSTestInAppMessage(messageId, displayQuantity, lastDisplay, displayed, clickIdsSet);
             iams.add(inAppMessage);
          } while (cursor.moveToNext());
       }

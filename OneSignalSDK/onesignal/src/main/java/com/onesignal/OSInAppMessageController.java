@@ -143,7 +143,8 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             return;
 
         try {
-            setMessages(processInAppMessageJson(new JSONArray(cachedIamsStr)));
+            ArrayList<OSInAppMessage> cacheMessages = processInAppMessageJson(new JSONArray(cachedIamsStr));
+            setMessages(cacheMessages);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -160,6 +161,10 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         List<OSInAppMessage> updatedRedisplayMessages = inAppMessageRepository.updateInAppMessage(newMessages, redisplayInAppMessages);
         if (redisplayInAppMessages.size() != updatedRedisplayMessages.size()) {
             redisplayInAppMessages = updatedRedisplayMessages;
+        }
+        //Reset feature flag for redisplay
+        for (OSInAppMessage redisplayInAppMessage : redisplayInAppMessages) {
+            redisplayInAppMessage.setDisplayed(false);
         }
         setMessages(newMessages);
     }
@@ -372,8 +377,10 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             OSInAppMessage savedIAM = redisplayInAppMessages.get(index);
             message.getDisplayStats().setDisplayStats(savedIAM.getDisplayStats());
 
+            // Message that don't have triggers should display only once per session
+            boolean triggerHasChanged = message.isTriggerChanged() || (!savedIAM.isDisplayed() && message.triggers.isEmpty());
             // Check if conditions are correct for redisplay
-            if (message.isTriggerChanged() &&
+            if (triggerHasChanged &&
                     message.getDisplayStats().isDelayTimeSatisfied(getDateGenerator()) &&
                     message.getDisplayStats().shouldDisplayAgain()) {
                 dismissedMessages.remove(message.messageId);
@@ -472,6 +479,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         message.getDisplayStats().setLastDisplayTime(displayTimeSeconds);
         message.getDisplayStats().incrementDisplayQuantity();
         message.setTriggerChanged(false);
+        message.setDisplayed(true);
 
         new Thread(new Runnable() {
             @Override
@@ -485,7 +493,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         //Avoid calling the repository data again
         int index = redisplayInAppMessages.indexOf(message);
         if (index != -1) {
-            redisplayInAppMessages.add(index, message);
+            redisplayInAppMessages.set(index, message);
         } else {
             redisplayInAppMessages.add(message);
         }

@@ -12,6 +12,7 @@ import com.onesignal.OneSignalPackagePrivateHelper;
 import com.onesignal.OneSignalPackagePrivateHelper.OSInAppMessageController;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestInAppMessage;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestTrigger;
+import com.onesignal.OneSignalPackagePrivateHelper.OneSignalPrefs;
 import com.onesignal.ShadowAdvertisingIdProviderGPS;
 import com.onesignal.ShadowCustomTabsClient;
 import com.onesignal.ShadowCustomTabsSession;
@@ -22,7 +23,6 @@ import com.onesignal.ShadowOSInAppMessageController;
 import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOSViewUtils;
 import com.onesignal.ShadowOSWebView;
-import com.onesignal.ShadowOneSignalDbHelper;
 import com.onesignal.ShadowOneSignalRestClient;
 import com.onesignal.ShadowPushRegistratorGCM;
 import com.onesignal.StaticResetHelper;
@@ -49,8 +49,10 @@ import org.robolectric.shadows.ShadowLog;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -622,6 +624,81 @@ public class InAppMessageIntegrationTests {
         assertEquals(2, ShadowOSInAppMessageController.dismissedMessages.get(1).getDisplayStats().getDisplayQuantity());
         assertEquals(newTimeInSeconds, ShadowOSInAppMessageController.dismissedMessages.get(1).getDisplayStats().getLastDisplayTime());
         assertTrue(ShadowOSInAppMessageController.dismissedMessages.get(1).getDisplayStats().getLastDisplayTime() - lastDisplayTime == DELAY);
+    }
+
+    @Test
+    public void testInAppMessageDisplayMultipleTimes_NoTriggers() throws Exception {
+        final long currentTimeInSeconds = new Date().getTime() / 1000;
+
+        // Create an IAM
+        final OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWitRedisplay(LIMIT, DELAY);
+
+        ContentValues values = new ContentValues();
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_MESSAGE_ID, message.messageId);
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_DISPLAY_QUANTITY, 1);
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_LAST_DISPLAY, currentTimeInSeconds);
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_CLICK_IDS, message.getClickedClickIds().toString());
+        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_DISPLAYED, 1);
+
+        SQLiteDatabase writableDatabase = OneSignalDbHelper.getInstance(RuntimeEnvironment.application).getWritableDatabase();
+        // Save IAM for redisplay
+        writableDatabase.insert(OneSignalPackagePrivateHelper.InAppMessageTable.TABLE_NAME, null, values);
+        writableDatabase.close();
+        // Save IAM for dismiss
+        OneSignalPrefs.saveStringSet(
+                OneSignalPrefs.PREFS_ONESIGNAL,
+                OneSignalPrefs.PREFS_OS_DISPLAYED_IAMS,
+                new HashSet<>(Collections.singletonList(message.messageId))
+        );
+
+        List<OSTestInAppMessage> savedInAppMessages = TestHelpers.getAllInAppMessages();
+        assertEquals(savedInAppMessages.size(), 1);
+        assertTrue(savedInAppMessages.get(0).isDisplayed());
+
+        setMockRegistrationResponseWithMessages(new ArrayList<OSTestInAppMessage>() {{
+            add(message);
+        }});
+
+        ShadowOSInAppMessageController.dateGenerator = new DateGenerator() {
+            @Override
+            public long getDateInSeconds() {
+                return currentTimeInSeconds + DELAY;
+            }
+        };
+
+        // Init OneSignal with IAM with redisplay
+        OneSignalInit();
+        threadAndTaskWait();
+
+        // First init will start a new session, then the IAM shoul be shown
+        assertEquals(1, ShadowOSInAppMessageController.displayedMessages.size());
+
+        // Dismiss IAM will make display quantity increase and last display time to change
+        OneSignalPackagePrivateHelper.dismissCurrentMessage();
+
+        // Wait for the delay between redisplay
+        final long newTimeInSeconds = currentTimeInSeconds + DELAY * 2;
+        ShadowOSInAppMessageController.dateGenerator = new DateGenerator() {
+            @Override
+            public long getDateInSeconds() {
+                return newTimeInSeconds;
+            }
+        };
+
+        // Add trigger to call evaluateInAppMessage
+        OneSignal.addTrigger("test_1", 2);
+        //IAM shouldn't display again because It don't have triggers
+        assertEquals(1, ShadowOSInAppMessageController.displayedMessages.size());
+
+        fastColdRestartApp();
+        setMockRegistrationResponseWithMessages(new ArrayList<OSTestInAppMessage>() {{
+            add(message);
+        }});
+        OneSignalInit();
+        threadAndTaskWait();
+
+        // It will return IAMs from the cache, so no new session happen
+        assertEquals(1, ShadowOSInAppMessageController.displayedMessages.size());
     }
 
     @Test

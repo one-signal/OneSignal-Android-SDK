@@ -54,6 +54,7 @@ class OSInAppMessage {
     private OSInAppMessageDisplayStats displayStats = new OSInAppMessageDisplayStats();
 
     private double displayDuration;
+    private boolean displayed = false;
     private boolean triggerChanged = false;
     private boolean actionTaken;
     boolean isPreview;
@@ -62,10 +63,10 @@ class OSInAppMessage {
         this.isPreview = isPreview;
     }
 
-    OSInAppMessage(@NonNull String messageId, @NonNull Set<String> clickIds, OSInAppMessageDisplayStats displayStats) {
+    OSInAppMessage(@NonNull String messageId, @NonNull Set<String> clickIds, boolean displayed, OSInAppMessageDisplayStats displayStats) {
         this.messageId = messageId;
         this.clickedClickIds = clickIds;
-
+        this.displayed = displayed;
         this.displayStats = displayStats;
     }
 
@@ -187,6 +188,14 @@ class OSInAppMessage {
 
     void setTriggerChanged(boolean triggerChanged) {
         this.triggerChanged = triggerChanged;
+    }
+
+    public boolean isDisplayed() {
+        return displayed;
+    }
+
+    public void setDisplayed(boolean displayed) {
+        this.displayed = displayed;
     }
 
     @NonNull
