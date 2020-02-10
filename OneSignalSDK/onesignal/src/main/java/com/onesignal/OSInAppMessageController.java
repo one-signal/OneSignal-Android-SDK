@@ -7,6 +7,8 @@ import android.support.annotation.Nullable;
 
 import com.onesignal.OSDynamicTriggerController.OSDynamicTriggerControllerObserver;
 import com.onesignal.OneSignalRestClient.ResponseHandler;
+import com.onesignal.utils.CurrentDateGenerator;
+import com.onesignal.utils.DateGenerator;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -34,6 +36,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
     OSTriggerController triggerController;
     private OSSystemConditionController systemConditionController;
     private OSInAppMessageRepository inAppMessageRepository;
+    private DateGenerator dateGenerator;
 
     // IAMs loaded remotely from on_session
     //   If on_session won't be called this will be loaded from cache
@@ -71,6 +74,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
     }
 
     protected OSInAppMessageController(OneSignalDbHelper dbInstance) {
+        dateGenerator = new CurrentDateGenerator();
         messages = new ArrayList<>();
         dismissedMessages = OSUtils.newConcurrentSet();
         impressionedMessages = OSUtils.newConcurrentSet();
@@ -104,6 +108,13 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             clickedClickIds.addAll(tempClickedMessageIdsSet);
 
         initRedisplayData(dbInstance);
+    }
+
+    /*
+    * For testing purposes
+    * */
+    public DateGenerator getDateGenerator() {
+        return dateGenerator;
     }
 
     void initRedisplayData(OneSignalDbHelper dbInstance) {
@@ -352,9 +363,8 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
 
             // Check if conditions are correct for redisplay
             if (message.isTriggerChanged() &&
-                    message.getDisplayStats().isDelayTimeSatisfied() &&
+                    message.getDisplayStats().isDelayTimeSatisfied(getDateGenerator()) &&
                     message.getDisplayStats().shouldDisplayAgain()) {
-
                 dismissedMessages.remove(message.messageId);
                 impressionedMessages.remove(message.messageId);
                 message.clearClickIds();
@@ -447,7 +457,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         if (!message.getDisplayStats().isRedisplayEnabled())
             return;
 
-        long displayTimeSeconds = new Date().getTime() / 1000;
+        long displayTimeSeconds = getDateGenerator().getDateInSeconds();
         message.getDisplayStats().setLastDisplayTime(displayTimeSeconds);
         message.getDisplayStats().incrementDisplayQuantity();
         message.setTriggerChanged(false);
