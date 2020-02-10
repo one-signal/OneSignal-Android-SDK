@@ -274,8 +274,8 @@ public class OneSignalPackagePrivateHelper {
 
    public static class OSTestInAppMessage extends com.onesignal.OSInAppMessage {
 
-      public OSTestInAppMessage(@NonNull String messageId, int displaysQuantity, long lastDisplayTime, Set<String> clickIds) {
-         super(messageId, clickIds, new OSInAppMessageDisplayStats(displaysQuantity, lastDisplayTime));
+      public OSTestInAppMessage(@NonNull String messageId, int displaysQuantity, long lastDisplayTime, boolean displayed, Set<String> clickIds) {
+         super(messageId, clickIds, displayed, new OSInAppMessageDisplayStats(displaysQuantity, lastDisplayTime));
       }
 
       OSTestInAppMessage(JSONObject json) throws JSONException {

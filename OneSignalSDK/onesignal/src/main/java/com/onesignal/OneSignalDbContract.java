@@ -81,5 +81,6 @@ class OneSignalDbContract {
       public static final String COLUMN_NAME_DISPLAY_QUANTITY = "display_quantity";
       public static final String COLUMN_NAME_LAST_DISPLAY = "last_display";
       public static final String COLUMN_CLICK_IDS = "click_ids";
+      public static final String COLUMN_DISPLAYED = "displayed";
    }
 }

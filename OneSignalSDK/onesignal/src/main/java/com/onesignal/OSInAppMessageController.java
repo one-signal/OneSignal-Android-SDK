@@ -143,7 +143,8 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             return;
 
         try {
-            processInAppMessageJson(new JSONArray(cachedIamsStr));
+            ArrayList<OSInAppMessage> cacheMessages = processInAppMessageJson(new JSONArray(cachedIamsStr));
+            setMessages(cacheMessages);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -163,17 +164,27 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         // Cache copy for quick cold starts
         OneSignalPrefs.saveString(OneSignalPrefs.PREFS_ONESIGNAL,
            OneSignalPrefs.PREFS_OS_CACHED_IAMS, json.toString());
-        processInAppMessageJson(json);
+        ArrayList<OSInAppMessage> newMessages = processInAppMessageJson(json);
+
+        // Reset feature flag for redisplay
+        for (OSInAppMessage redisplayInAppMessage : redisplayInAppMessages) {
+            redisplayInAppMessage.setDisplayedInSession(false);
+        }
+
+        setMessages(newMessages);
     }
 
-    private void processInAppMessageJson(@NonNull JSONArray json) throws JSONException {
+    private ArrayList<OSInAppMessage> processInAppMessageJson(@NonNull JSONArray json) throws JSONException {
         ArrayList<OSInAppMessage> newMessages = new ArrayList<>();
         for (int i = 0; i < json.length(); i++) {
             JSONObject messageJson = json.getJSONObject(i);
             OSInAppMessage message = new OSInAppMessage(messageJson);
             newMessages.add(message);
         }
+        return newMessages;
+    }
 
+    private void setMessages(ArrayList<OSInAppMessage> newMessages) {
         messages = newMessages;
 
         evaluateInAppMessages();
@@ -371,8 +382,10 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             OSInAppMessage savedIAM = redisplayInAppMessages.get(index);
             message.getDisplayStats().setDisplayStats(savedIAM.getDisplayStats());
 
+            // Message that don't have triggers should display only once per session
+            boolean triggerHasChanged = message.isTriggerChanged() || (!savedIAM.isDisplayedInSession() && message.triggers.isEmpty());
             // Check if conditions are correct for redisplay
-            if (message.isTriggerChanged() &&
+            if (triggerHasChanged &&
                     message.getDisplayStats().isDelayTimeSatisfied(getDateGenerator()) &&
                     message.getDisplayStats().shouldDisplayAgain()) {
                 dismissedMessages.remove(message.messageId);
@@ -471,6 +484,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         message.getDisplayStats().setLastDisplayTime(displayTimeSeconds);
         message.getDisplayStats().incrementDisplayQuantity();
         message.setTriggerChanged(false);
+        message.setDisplayedInSession(true);
 
         new Thread(new Runnable() {
             @Override
