@@ -23,6 +23,7 @@ import com.onesignal.ShadowOneSignalRestClient;
 import com.onesignal.ShadowPushRegistratorGCM;
 import com.onesignal.StaticResetHelper;
 import com.onesignal.example.BlankActivity;
+import com.onesignal.utils.DateGenerator;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -76,7 +77,7 @@ public class InAppMessagingUnitTests {
     private static final String IAM_CLICK_ID = "button_id_123";
     private static final double REQUIRED_TIMER_ACCURACY = 1.25;
     private static final int LIMIT = 5;
-    private static final double DELAY = 60.0;
+    private static final long DELAY = 60;
 
     private static OSTestInAppMessage message;
 
@@ -166,7 +167,7 @@ public class InAppMessagingUnitTests {
         assertTrue(message.getDisplayStats().isRedisplayEnabled());
         assertEquals(LIMIT, message.getDisplayStats().getDisplayLimit());
         assertEquals(DELAY, message.getDisplayStats().getDisplayDelay());
-        assertEquals(-1.0, message.getDisplayStats().getLastDisplayTime());
+        assertEquals(-1, message.getDisplayStats().getLastDisplayTime());
         assertEquals(0, message.getDisplayStats().getDisplayQuantity());
 
         OSTestInAppMessage messageWithoutDisplay = InAppMessagingHelpers.buildTestMessageWithSingleTrigger(
@@ -177,8 +178,8 @@ public class InAppMessagingUnitTests {
         );
         assertFalse(messageWithoutDisplay.getDisplayStats().isRedisplayEnabled());
         assertEquals(Integer.MAX_VALUE, messageWithoutDisplay.getDisplayStats().getDisplayLimit());
-        assertEquals(0.0, messageWithoutDisplay.getDisplayStats().getDisplayDelay());
-        assertEquals(-1.0, messageWithoutDisplay.getDisplayStats().getLastDisplayTime());
+        assertEquals(0, messageWithoutDisplay.getDisplayStats().getDisplayDelay());
+        assertEquals(-1, messageWithoutDisplay.getDisplayStats().getLastDisplayTime());
         assertEquals(0, messageWithoutDisplay.getDisplayStats().getDisplayQuantity());
     }
 
@@ -200,22 +201,27 @@ public class InAppMessagingUnitTests {
 
     @Test
     public void testBuiltMessageRedisplayDelay() throws JSONException {
+        final long currentTimeInSeconds = new Date().getTime() / 1000;
+
+        DateGenerator dateGenerator = new DateGenerator() {
+            @Override
+            public long getDateInSeconds() {
+                return currentTimeInSeconds;
+            }
+        };
+
         OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWitRedisplay(
                 LIMIT,
                 DELAY
         );
 
-        assertTrue(message.getDisplayStats().isDelayTimeSatisfied());
+        assertTrue(message.getDisplayStats().isDelayTimeSatisfied(dateGenerator));
 
-        double timeSeconds = new Date().getTime() / 1000;
+        message.getDisplayStats().setLastDisplayTime(currentTimeInSeconds - DELAY);
+        assertTrue(message.getDisplayStats().isDelayTimeSatisfied(dateGenerator));
 
-        message.getDisplayStats().setLastDisplayTime(timeSeconds - DELAY);
-
-        assertTrue(message.getDisplayStats().isDelayTimeSatisfied());
-
-        message.getDisplayStats().setLastDisplayTime(timeSeconds - DELAY + 1);
-
-        assertFalse(message.getDisplayStats().isDelayTimeSatisfied());
+        message.getDisplayStats().setLastDisplayTime(currentTimeInSeconds - DELAY + 1);
+        assertFalse(message.getDisplayStats().isDelayTimeSatisfied(dateGenerator));
     }
 
     @Test

@@ -9,6 +9,8 @@ import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.onesignal.utils.DateGenerator;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -362,12 +364,12 @@ public class OneSignalPackagePrivateHelper {
       }
 
       @Override
-      public double getLastDisplayTime() {
+      public long getLastDisplayTime() {
          return this.displayStats.getLastDisplayTime();
       }
 
       @Override
-      public void setLastDisplayTime(double lastDisplayTime) {
+      public void setLastDisplayTime(long lastDisplayTime) {
          this.displayStats.setLastDisplayTime(lastDisplayTime);
       }
 
@@ -397,12 +399,12 @@ public class OneSignalPackagePrivateHelper {
       }
 
       @Override
-      public double getDisplayDelay() {
+      public long getDisplayDelay() {
          return this.displayStats.getDisplayDelay();
       }
 
       @Override
-      public void setDisplayDelay(double displayDelay) {
+      public void setDisplayDelay(long displayDelay) {
          this.displayStats.setDisplayDelay(displayDelay);
       }
 
@@ -412,8 +414,8 @@ public class OneSignalPackagePrivateHelper {
       }
 
       @Override
-      public boolean isDelayTimeSatisfied() {
-         return this.displayStats.isDelayTimeSatisfied();
+      public boolean isDelayTimeSatisfied(DateGenerator dateGenerator) {
+         return this.displayStats.isDelayTimeSatisfied(dateGenerator);
       }
 
       @Override

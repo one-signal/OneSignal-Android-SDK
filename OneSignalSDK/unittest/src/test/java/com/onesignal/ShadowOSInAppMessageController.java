@@ -1,5 +1,8 @@
 package com.onesignal;
 
+import com.onesignal.utils.CurrentDateGenerator;
+import com.onesignal.utils.DateGenerator;
+
 import org.json.JSONException;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
@@ -13,8 +16,14 @@ public class ShadowOSInAppMessageController {
 
     @RealObject private OSInAppMessageController realObject;
 
+    public static DateGenerator dateGenerator = new CurrentDateGenerator();
     public static ArrayList<String> displayedMessages = new ArrayList<>();
     public static ArrayList<OneSignalPackagePrivateHelper.OSTestInAppMessage> dismissedMessages = new ArrayList<>();
+
+    @Implementation
+    public DateGenerator getDateGenerator() {
+        return dateGenerator;
+    }
 
     @Implementation
     public void displayMessage(final OSInAppMessage message) throws JSONException {
