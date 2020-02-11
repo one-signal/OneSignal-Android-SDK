@@ -578,7 +578,7 @@ public class InAppMessageIntegrationTests {
         // Init OneSignal with IAM with redisplay
         OneSignalInit();
         threadAndTaskWait();
-
+        
         // Add trigger to make IAM display
         OneSignal.addTrigger("test_1", 2);
         assertEquals(1, ShadowOSInAppMessageController.displayedMessages.size());
