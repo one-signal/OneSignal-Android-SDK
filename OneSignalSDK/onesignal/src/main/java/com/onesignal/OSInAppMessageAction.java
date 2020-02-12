@@ -7,6 +7,18 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public class OSInAppMessageAction {
+
+    private static final String ID = "id";
+    private static final String NAME = "name";
+    private static final String URL = "url";
+    private static final String URL_TARGET = "url_target";
+    private static final String CLOSE = "close";
+    private static final String CLICK_NAME = "click_name";
+    private static final String CLICK_URL = "click_url";
+    private static final String FIRST_CLICK = "first_click";
+    private static final String CLOSES_MESSAGE = "closes_message";
+    private static final String OUTCOME = "outcome";
+
     /** UUID assigned by OneSignal for internal use.
      * Package-private to track which element was tapped to report to the OneSignal dashboard. */
     @NonNull
@@ -24,31 +36,41 @@ public class OSInAppMessageAction {
     @Nullable
     public String clickUrl;
 
+    /** Outcome for action */
+    public OSInAppMessageOutcome outcome;
+
     /** Determines if this was the first action taken on the in app message */
     public boolean firstClick;
 
     /** Determines if tapping on the element should close the In-App Message. */
     public boolean closesMessage;
 
-    OSInAppMessageAction(@NonNull JSONObject json) {
-        clickId = json.optString("id", null);
-        clickName = json.optString("name", null);
-        clickUrl = json.optString("url", null);
-        urlTarget = OSInAppMessageActionUrlType.fromString(json.optString("url_target", null));
+    OSInAppMessageAction(@NonNull JSONObject json) throws JSONException {
+        clickId = json.optString(ID, null);
+        clickName = json.optString(NAME, null);
+        clickUrl = json.optString(URL, null);
+        urlTarget = OSInAppMessageActionUrlType.fromString(json.optString(URL_TARGET, null));
         if (urlTarget == null)
             urlTarget = OSInAppMessageActionUrlType.IN_APP_WEBVIEW;
 
-        closesMessage = json.optBoolean("close", true);
+        closesMessage = json.optBoolean(CLOSE, true);
+
+        if (json.has(OUTCOME)) {
+            outcome = new OSInAppMessageOutcome(json.getJSONObject(OUTCOME));
+        }
     }
 
     public JSONObject toJSONObject() {
         JSONObject mainObj = new JSONObject();
         try {
-            mainObj.put("click_name", clickName);
-            mainObj.put("click_url", clickUrl);
-            mainObj.put("first_click", firstClick);
-            mainObj.put("closes_message", closesMessage);
+            mainObj.put(CLICK_NAME, clickName);
+            mainObj.put(CLICK_URL, clickUrl);
+            mainObj.put(FIRST_CLICK, firstClick);
+            mainObj.put(CLOSES_MESSAGE, closesMessage);
 
+            if (outcome != null) {
+                mainObj.put(OUTCOME, outcome.toJSONObject());
+            }
             // Omitted for now until necessary
 //            if (urlTarget != null)
 //                mainObj.put("url_target", urlTarget.toJSONObject());

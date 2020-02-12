@@ -346,7 +346,7 @@ public class OneSignalPackagePrivateHelper {
          return sharedInstance;
       }
 
-      public void onMessageActionOccurredOnMessage(@NonNull final com.onesignal.OSInAppMessage message, @NonNull final JSONObject actionJson) {
+      public void onMessageActionOccurredOnMessage(@NonNull final com.onesignal.OSInAppMessage message, @NonNull final JSONObject actionJson) throws JSONException {
          super.onMessageActionOccurredOnMessage(message, actionJson);
       }
 

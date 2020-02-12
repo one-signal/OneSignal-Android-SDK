@@ -229,21 +229,34 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         }
     }
 
-    void onMessageActionOccurredOnMessage(@NonNull final OSInAppMessage message, @NonNull final JSONObject actionJson) {
+    void onMessageActionOccurredOnMessage(@NonNull final OSInAppMessage message, @NonNull final JSONObject actionJson) throws JSONException {
         final OSInAppMessageAction action = new OSInAppMessageAction(actionJson);
         action.firstClick = message.takeActionAsUnique();
 
         firePublicClickHandler(action);
         fireClickAction(action);
         fireRESTCallForClick(message, action);
+        fireOutcomeForClick(action);
     }
 
-    void onMessageActionOccurredOnPreview(@NonNull final OSInAppMessage message, @NonNull final JSONObject actionJson) {
+    void onMessageActionOccurredOnPreview(@NonNull final OSInAppMessage message, @NonNull final JSONObject actionJson) throws JSONException {
         final OSInAppMessageAction action = new OSInAppMessageAction(actionJson);
         action.firstClick = message.takeActionAsUnique();
 
         firePublicClickHandler(action);
         fireClickAction(action);
+    }
+
+    private void fireOutcomeForClick(@NonNull final OSInAppMessageAction action) {
+        if (action.outcome != null && !action.outcome.getName().isEmpty()) {
+            OSInAppMessageOutcome outcome = action.outcome;
+
+            if (outcome.isUnique()) {
+                OneSignal.sendUniqueClickActionOutcomeEvent(outcome.getName());
+            } else {
+                OneSignal.sendClickActionOutcomeWithValue(outcome.getName(), outcome.getWeight() > 0 ? (float) outcome.getWeight() : 0);
+            }
+        }
     }
 
     private void firePublicClickHandler(@NonNull final OSInAppMessageAction action) {

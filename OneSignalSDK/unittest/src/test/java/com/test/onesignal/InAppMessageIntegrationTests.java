@@ -74,8 +74,11 @@ import static junit.framework.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
 public class InAppMessageIntegrationTests {
-    private static final String IAM_CLICK_ID = "button_id_123";
+
     private static final String ONESIGNAL_APP_ID = "b2f7f966-d8cc-11e4-bed1-df8f05be55ba";
+    private static final String IAM_CLICK_ID = "button_id_123";
+    private static final String IAM_OUTCOME_NAME = "outcome_name";
+    private static final float IAM_OUTCOME_WEIGHT = 5;
 
     @SuppressLint("StaticFieldLeak")
     private static Activity blankActivity;
@@ -464,6 +467,130 @@ public class InAppMessageIntegrationTests {
            null
         );
         assertEquals(1, testClickedMessages.size());
+    }
+
+    @Test
+    public void testInAppMessageClickActionOutcome() throws Exception {
+        // 1. Init OneSignal
+        OneSignalInit();
+        threadAndTaskWait();
+
+        // Enable Outcomes
+        OneSignalPackagePrivateHelper.OneSignalPrefs.saveBool(
+                OneSignalPackagePrivateHelper.OneSignalPrefs.PREFS_ONESIGNAL,
+                OneSignalPackagePrivateHelper.OneSignalPrefs.PREFS_OS_UNATTRIBUTED_ENABLED,
+                true
+        );
+
+        // 2. Create an IAM
+        final OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWithSingleTrigger(
+                OSTriggerKind.SESSION_TIME,
+                null,
+                OSTestTrigger.OSTriggerOperator.NOT_EXISTS.toString(),
+                null
+        );
+
+        JSONObject actionWithWeight = new JSONObject() {{
+            put("id", IAM_CLICK_ID);
+            put("outcome", new JSONObject() {{
+                put("name", IAM_OUTCOME_NAME);
+                put("weight", IAM_OUTCOME_WEIGHT);
+            }});
+        }};
+        JSONObject action = new JSONObject() {{
+            put("id", IAM_CLICK_ID);
+            put("outcome", new JSONObject() {{
+                put("name", IAM_OUTCOME_NAME);
+            }});
+        }};
+
+        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, actionWithWeight);
+
+        // 3. Ensure outcome is sent
+        ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(3);
+
+        assertEquals("outcomes/measure", iamOutcomeRequest.url);
+        // Requests: Param request + Players Request + Click request + Outcome Request
+        assertEquals(4, ShadowOneSignalRestClient.requests.size());
+        assertEquals(IAM_OUTCOME_WEIGHT, iamOutcomeRequest.payload.get("weight"));
+        assertEquals(IAM_OUTCOME_NAME, iamOutcomeRequest.payload.get("id"));
+        assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
+
+        // 4. Call IAM clicked again, ensure a 2nd outcome call is made.
+        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, actionWithWeight);
+        // 5. Outcome will be sent again
+        ShadowOneSignalRestClient.Request secondIamOutcomeRequest = ShadowOneSignalRestClient.requests.get(4);
+        assertEquals(5, ShadowOneSignalRestClient.requests.size());
+        assertEquals("outcomes/measure", secondIamOutcomeRequest.url);
+
+        // 6. Call IAM clicked again, with action with no outcomeWeight.
+        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+
+        ShadowOneSignalRestClient.Request noWeightOutcomeRequest = ShadowOneSignalRestClient.requests.get(5);
+
+        assertEquals(6, ShadowOneSignalRestClient.requests.size());
+        assertEquals("outcomes/measure", noWeightOutcomeRequest.url);
+
+        assertFalse(noWeightOutcomeRequest.payload.has("weight"));
+        assertEquals(IAM_OUTCOME_NAME, noWeightOutcomeRequest.payload.get("id"));
+        assertEquals(1, noWeightOutcomeRequest.payload.get("device_type"));
+
+        // Disable Outcomes
+        OneSignalPackagePrivateHelper.OneSignalPrefs.saveBool(
+                OneSignalPackagePrivateHelper.OneSignalPrefs.PREFS_ONESIGNAL,
+                OneSignalPackagePrivateHelper.OneSignalPrefs.PREFS_OS_UNATTRIBUTED_ENABLED,
+                false
+        );
+
+        // 7. With unattributed outcomes disable no outcome request should happen
+        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        assertEquals(6, ShadowOneSignalRestClient.requests.size());
+    }
+
+    @Test
+    public void testInAppMessageClickActionUniqueOutcome() throws Exception {
+        // 1. Init OneSignal
+        OneSignalInit();
+        threadAndTaskWait();
+
+        // Enable Outcomes
+        OneSignalPackagePrivateHelper.OneSignalPrefs.saveBool(
+                OneSignalPackagePrivateHelper.OneSignalPrefs.PREFS_ONESIGNAL,
+                OneSignalPackagePrivateHelper.OneSignalPrefs.PREFS_OS_UNATTRIBUTED_ENABLED,
+                true
+        );
+
+        // 2. Create an IAM
+        final OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWithSingleTrigger(
+                OSTriggerKind.SESSION_TIME,
+                null,
+                OSTestTrigger.OSTriggerOperator.NOT_EXISTS.toString(),
+                null
+        );
+
+        JSONObject action = new JSONObject() {{
+            put("id", IAM_CLICK_ID);
+            put("outcome", new JSONObject() {{
+                put("name", IAM_OUTCOME_NAME);
+                put("unique", true);
+            }});
+        }};
+
+        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+
+        // 3. Ensure outcome is sent
+        ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(3);
+
+        assertEquals("outcomes/measure", iamOutcomeRequest.url);
+        // Requests: Param request + Players Request + Click request + Outcome Request
+        assertEquals(4, ShadowOneSignalRestClient.requests.size());
+        assertEquals(IAM_OUTCOME_NAME, iamOutcomeRequest.payload.get("id"));
+        assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
+
+        // 4. Call IAM clicked again, ensure no 2nd outcome call is made.
+        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        // 5. Check no additional request was made
+        assertEquals(4, ShadowOneSignalRestClient.requests.size());
     }
 
     @Test
