@@ -2,12 +2,9 @@ package com.test.onesignal;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.ContentValues;
-import android.database.sqlite.SQLiteDatabase;
 
 import com.onesignal.InAppMessagingHelpers;
 import com.onesignal.OneSignal;
-import com.onesignal.OneSignalDbHelper;
 import com.onesignal.OneSignalPackagePrivateHelper;
 import com.onesignal.OneSignalPackagePrivateHelper.OSInAppMessageController;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestInAppMessage;
@@ -22,7 +19,6 @@ import com.onesignal.ShadowOSInAppMessageController;
 import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOSViewUtils;
 import com.onesignal.ShadowOSWebView;
-import com.onesignal.ShadowOneSignalDbHelper;
 import com.onesignal.ShadowOneSignalRestClient;
 import com.onesignal.ShadowPushRegistratorGCM;
 import com.onesignal.StaticResetHelper;
@@ -42,7 +38,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLog;
@@ -84,8 +79,10 @@ import static junit.framework.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
 public class InAppMessageIntegrationTests {
+
     private static final String IAM_CLICK_ID = "button_id_123";
     private static final String ONESIGNAL_APP_ID = "b2f7f966-d8cc-11e4-bed1-df8f05be55ba";
+    private static final long SIX_MONTHS_TIME_SECONDS = 6 * 30 * 24 * 60 * 60;
     private static final int LIMIT = 5;
     private static final int DELAY = 60;
 
@@ -890,23 +887,29 @@ public class InAppMessageIntegrationTests {
 
     @Test
     public void testInAppMessageRedisplayCacheUpdate() throws Exception {
-        SQLiteDatabase writableDatabase = OneSignalDbHelper.getInstance(RuntimeEnvironment.application).getWritableDatabase();
+        final long currentTimeInSeconds = new Date().getTime() / 1000;
+        ShadowOSInAppMessageController.dateGenerator = new DateGenerator() {
+            @Override
+            public long getDateInSeconds() {
+                return currentTimeInSeconds;
+            }
+        };
 
         final OSTestInAppMessage inAppMessage = InAppMessagingHelpers.buildTestMessageWithSingleTriggerAndRedisplay(
-                OSTriggerKind.CUSTOM,"test_saved", OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2, LIMIT, DELAY);
+                OSTriggerKind.CUSTOM,"test_saved", OneSignalPackagePrivateHelper.OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2, LIMIT, DELAY);
 
-        ContentValues values = new ContentValues();
-        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_MESSAGE_ID, inAppMessage.messageId);
-        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_DISPLAY_QUANTITY, inAppMessage.getDisplayStats().getDisplayQuantity());
-        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_NAME_LAST_DISPLAY, inAppMessage.getDisplayStats().getLastDisplayTime());
-        values.put(OneSignalPackagePrivateHelper.InAppMessageTable.COLUMN_CLICK_IDS, inAppMessage.getClickedClickIds().toString());
+        String firstID = inAppMessage.messageId + "_test";
+        inAppMessage.messageId = firstID;
+        inAppMessage.getDisplayStats().setLastDisplayTime(currentTimeInSeconds);
+        TestHelpers.saveIAM(inAppMessage);
 
-        writableDatabase.insert(OneSignalPackagePrivateHelper.InAppMessageTable.TABLE_NAME, null, values);
-        writableDatabase.close();
+        inAppMessage.getDisplayStats().setLastDisplayTime(currentTimeInSeconds - SIX_MONTHS_TIME_SECONDS - 1);
+        inAppMessage.messageId += "1";
+        TestHelpers.saveIAM(inAppMessage);
 
         List<OSTestInAppMessage> savedInAppMessages = TestHelpers.getAllInAppMessages();
 
-        assertEquals(savedInAppMessages.size(), 1);
+        assertEquals(2, savedInAppMessages.size());
 
         final OSTestInAppMessage message1 = InAppMessagingHelpers.buildTestMessageWithSingleTriggerAndRedisplay(
                 OSTriggerKind.CUSTOM,"test_1", OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2, LIMIT, DELAY);
@@ -923,17 +926,9 @@ public class InAppMessageIntegrationTests {
         threadAndTaskWait();
 
         List<OSTestInAppMessage> savedInAppMessagesAfterInit = TestHelpers.getAllInAppMessages();
-        assertEquals(savedInAppMessagesAfterInit.size(), 0);
-
-
-        // Set same trigger, should display again
-        OneSignal.addTrigger("test_1", 2);
-        OneSignalPackagePrivateHelper.dismissCurrentMessage();
-        threadAndTaskWait();
-
-        List<OSTestInAppMessage> savedInAppMessagesAfterDismissedIAMWithRedisplay = TestHelpers.getAllInAppMessages();
-        assertEquals(savedInAppMessagesAfterDismissedIAMWithRedisplay.size(), 1);
-        assertEquals(savedInAppMessagesAfterDismissedIAMWithRedisplay.get(0).messageId, message1.messageId);
+        // Message with old display time should be removed
+        assertEquals(1, savedInAppMessagesAfterInit.size());
+        assertEquals(firstID, savedInAppMessagesAfterInit.get(0).messageId);
     }
 
     @Test

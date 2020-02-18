@@ -143,7 +143,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             return;
 
         try {
-            setMessages(processInAppMessageJson(new JSONArray(cachedIamsStr)));
+            processInAppMessageJson(new JSONArray(cachedIamsStr));
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -152,29 +152,28 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
     // Called after the device is registered from UserStateSynchronizer
     //    which is the REST call to create the player record on_session
     void receivedInAppMessageJson(@NonNull JSONArray json) throws JSONException {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Thread.currentThread().setPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                inAppMessageRepository.deleteOldInAppMessages(dateGenerator.getDateInSeconds());
+            }
+        }, OS_SAVE_IN_APP_MESSAGE).start();
+
         // Cache copy for quick cold starts
         OneSignalPrefs.saveString(OneSignalPrefs.PREFS_ONESIGNAL,
            OneSignalPrefs.PREFS_OS_CACHED_IAMS, json.toString());
-        ArrayList<OSInAppMessage> newMessages = processInAppMessageJson(json);
-
-        List<OSInAppMessage> updatedRedisplayMessages = inAppMessageRepository.updateInAppMessage(newMessages, redisplayInAppMessages);
-        if (redisplayInAppMessages.size() != updatedRedisplayMessages.size()) {
-            redisplayInAppMessages = updatedRedisplayMessages;
-        }
-        setMessages(newMessages);
+        processInAppMessageJson(json);
     }
 
-    private ArrayList<OSInAppMessage>  processInAppMessageJson(@NonNull JSONArray json) throws JSONException {
+    private void processInAppMessageJson(@NonNull JSONArray json) throws JSONException {
         ArrayList<OSInAppMessage> newMessages = new ArrayList<>();
         for (int i = 0; i < json.length(); i++) {
             JSONObject messageJson = json.getJSONObject(i);
             OSInAppMessage message = new OSInAppMessage(messageJson);
             newMessages.add(message);
         }
-        return newMessages;
-    }
 
-    private void setMessages( ArrayList<OSInAppMessage> newMessages) {
         messages = newMessages;
 
         evaluateInAppMessages();
@@ -481,8 +480,8 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             }
         }, OS_SAVE_IN_APP_MESSAGE).start();
 
-        //Update the data to enable future re displays
-        //Avoid calling the repository data again
+        // Update the data to enable future re displays
+        // Avoid calling the repository data again
         int index = redisplayInAppMessages.indexOf(message);
         if (index != -1) {
             redisplayInAppMessages.set(index, message);
@@ -580,7 +579,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
      * Make all messages with redisplay enable available for redisplay if:
      *   - Already displayed
      *   - Trigger changed
-     * */
+     */
     private void checkTriggerChanged(Collection<String> newTriggersKeys) {
         for (OSInAppMessage message : messages) {
             if (redisplayInAppMessages.contains(message) &&
