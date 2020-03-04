@@ -6,7 +6,6 @@ import android.app.Activity;
 import com.onesignal.InAppMessagingHelpers;
 import com.onesignal.OneSignal;
 import com.onesignal.OneSignalPackagePrivateHelper;
-import com.onesignal.OneSignalPackagePrivateHelper.OSInAppMessageController;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestInAppMessage;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestTrigger;
 import com.onesignal.OneSignalPackagePrivateHelper.OneSignalPrefs;
@@ -83,6 +82,7 @@ public class InAppMessageIntegrationTests {
     private static final String ONESIGNAL_APP_ID = "b2f7f966-d8cc-11e4-bed1-df8f05be55ba";
     private static final String IAM_CLICK_ID = "button_id_123";
     private static final String IAM_OUTCOME_NAME = "outcome_name";
+    private static final String IAM_TAG_KEY = "test1";
     private static final float IAM_OUTCOME_WEIGHT = 5;
     private static final long SIX_MONTHS_TIME_SECONDS = 6 * 30 * 24 * 60 * 60;
     private static final int LIMIT = 5;
@@ -457,7 +457,7 @@ public class InAppMessageIntegrationTests {
 
         // 2. Count IAM as clicked
         JSONObject action = new JSONObject() {{ put("id", IAM_CLICK_ID); }};
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // 3. Ensure click is sent
         ShadowOneSignalRestClient.Request iamImpressionRequest = ShadowOneSignalRestClient.requests.get(2);
@@ -465,7 +465,7 @@ public class InAppMessageIntegrationTests {
         assertEquals(3, ShadowOneSignalRestClient.requests.size());
 
         // 4. Call IAM clicked again, ensure a 2nd network call is not made.
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
         assertEquals(3, ShadowOneSignalRestClient.requests.size());
 
         // Verify clickId was persisted locally
@@ -517,7 +517,7 @@ public class InAppMessageIntegrationTests {
             put("outcomes", outcomes);
         }};
 
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, actionWithWeight);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, actionWithWeight);
 
         // 3. Ensure outcome is sent
         ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(3);
@@ -530,14 +530,14 @@ public class InAppMessageIntegrationTests {
         assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
 
         // 4. Call IAM clicked again, ensure a 2nd outcome call is made.
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, actionWithWeight);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, actionWithWeight);
         // 5. Outcome will be sent again
         ShadowOneSignalRestClient.Request secondIamOutcomeRequest = ShadowOneSignalRestClient.requests.get(4);
         assertEquals(5, ShadowOneSignalRestClient.requests.size());
         assertEquals("outcomes/measure", secondIamOutcomeRequest.url);
 
         // 6. Call IAM clicked again, with action with no outcomeWeight.
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         ShadowOneSignalRestClient.Request noWeightOutcomeRequest = ShadowOneSignalRestClient.requests.get(5);
 
@@ -556,7 +556,7 @@ public class InAppMessageIntegrationTests {
         );
 
         // 7. With unattributed outcomes disable no outcome request should happen
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
         assertEquals(6, ShadowOneSignalRestClient.requests.size());
     }
 
@@ -591,7 +591,7 @@ public class InAppMessageIntegrationTests {
             put("outcomes", outcomes);
         }};
 
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // 3. Ensure outcome is sent
         ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(3);
@@ -603,9 +603,67 @@ public class InAppMessageIntegrationTests {
         assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
 
         // 4. Call IAM clicked again, ensure no 2nd outcome call is made.
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
         // 5. Check no additional request was made
         assertEquals(4, ShadowOneSignalRestClient.requests.size());
+    }
+
+    @Test
+    public void testInAppMessageClickActionSendAndRemoveTag() throws Exception {
+        // 1. Init OneSignal
+        OneSignalInit();
+        threadAndTaskWait();
+
+        // 2. Create an IAM
+        final OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWithSingleTrigger(
+                OSTriggerKind.SESSION_TIME,
+                null,
+                OSTestTrigger.OSTriggerOperator.NOT_EXISTS.toString(),
+                null
+        );
+
+        final JSONObject addTags =  new JSONObject() {{
+            put(IAM_TAG_KEY, IAM_TAG_KEY);
+        }};
+        JSONObject action = new JSONObject() {{
+            put("id", IAM_CLICK_ID);
+            put("tags", new JSONObject() {{
+                put("add", addTags);
+            }});
+        }};
+
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
+        threadAndTaskWait();
+        // 3. Ensure players call is made
+        ShadowOneSignalRestClient.Request iamSendTagRequest = ShadowOneSignalRestClient.requests.get(3);
+
+        assertEquals("players/a2f7f967-e8cc-11e4-bed1-118f05be4511", iamSendTagRequest.url);
+        // Requests: Param request + Players Request + Click request + Tag Request
+        assertEquals(4, ShadowOneSignalRestClient.requests.size());
+        assertEquals(addTags.toString(), iamSendTagRequest.payload.get("tags").toString());
+
+        final JSONArray removeTags = new JSONArray();
+        removeTags.put(IAM_TAG_KEY);
+        final JSONObject[] lastGetTags = new JSONObject[1];
+        JSONObject actionRemove = new JSONObject() {{
+            put("id", IAM_CLICK_ID + "delete"); // Make a different click id for remove tags
+            put("tags", new JSONObject() {{
+                put("remove", removeTags);
+            }});
+        }};
+
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, actionRemove);
+        threadAndTaskWait();
+        OneSignal.getTags(new OneSignal.GetTagsHandler() {
+            @Override
+            public void tagsAvailable(JSONObject tags) {
+                lastGetTags[0] = tags;
+            }
+        });
+        threadAndTaskWait();
+        // 3. Ensure no tags
+        assertEquals(1, lastGetTags.length);
+        assertEquals(0, lastGetTags[0].length());
     }
 
     @Test
@@ -623,7 +681,7 @@ public class InAppMessageIntegrationTests {
 
         // 2. Count IAM as clicked
         JSONObject action = new JSONObject() {{ put("id", IAM_CLICK_ID); }};
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // 3. Cold restart app and re-init OneSignal
         fastColdRestartApp();
@@ -631,7 +689,7 @@ public class InAppMessageIntegrationTests {
         threadAndTaskWait();
 
         // 4. Click on IAM again
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // Since the app restart and another message shown callback only 1 more request should exist
         //  So verify 4 requests exist (3 old and 1 new)
@@ -657,14 +715,14 @@ public class InAppMessageIntegrationTests {
                 null);
 
         // Call message shown callback and verify only 3 requests exist (3rd being the iam impression request)
-        OSInAppMessageController.getController().onMessageWasShown(message);
+        OneSignalPackagePrivateHelper.onMessageWasShown(message);
 
         ShadowOneSignalRestClient.Request iamImpressionRequest = ShadowOneSignalRestClient.requests.get(2);
         assertEquals("in_app_messages/" + message.messageId + "/impression", iamImpressionRequest.url);
         assertEquals(3, ShadowOneSignalRestClient.requests.size());
 
         // Call message shown again and make sure no other requests were made, so the impression tracking exists locally
-        OSInAppMessageController.getController().onMessageWasShown(message);
+        OneSignalPackagePrivateHelper.onMessageWasShown(message);
         assertEquals(3, ShadowOneSignalRestClient.requests.size());
 
         // Verify impressioned messageId was persisted locally
@@ -690,14 +748,14 @@ public class InAppMessageIntegrationTests {
                 null);
 
         // Trigger the impression request and caching of the impressioned messageId
-        OSInAppMessageController.getController().onMessageWasShown(message);
+        OneSignalPackagePrivateHelper.onMessageWasShown(message);
 
         // Cold restart app and re-init OneSignal
         fastColdRestartApp();
         OneSignalInit();
         threadAndTaskWait();
 
-        OSInAppMessageController.getController().onMessageWasShown(message);
+        OneSignalPackagePrivateHelper.onMessageWasShown(message);
 
         // Since the app restart and another message shown callback only 1 more request should exist
         //  So verify 4 requests exist (3 old and 1 new)
@@ -999,7 +1057,7 @@ public class InAppMessageIntegrationTests {
         assertTrue(message.getClickedClickIds().isEmpty());
         // Count IAM as clicked
         JSONObject action = new JSONObject() {{ put("id", IAM_CLICK_ID); }};
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // Ensure click is sent
         ShadowOneSignalRestClient.Request firstIAMClickRequest = ShadowOneSignalRestClient.requests.get(2);
@@ -1007,7 +1065,7 @@ public class InAppMessageIntegrationTests {
         assertEquals(3, ShadowOneSignalRestClient.requests.size());
 
         // Call IAM clicked again, ensure a 2nd network call isn't made.
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
         assertEquals(3, ShadowOneSignalRestClient.requests.size());
 
         // Verify clickId was persisted locally
@@ -1025,7 +1083,7 @@ public class InAppMessageIntegrationTests {
         assertTrue(message.getClickedClickIds().isEmpty());
 
         // Click should be received twice
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // Call IAM clicked again, ensure a 2nd network call is made.
         ShadowOneSignalRestClient.Request secondIAMClickRequest = ShadowOneSignalRestClient.requests.get(3);
@@ -1045,7 +1103,7 @@ public class InAppMessageIntegrationTests {
         assertTrue(message.getClickedClickIds().contains(IAM_CLICK_ID));
 
         // Call IAM clicked again
-        OSInAppMessageController.getController().onMessageActionOccurredOnMessage(message, action);
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // Call IAM clicked again, ensure a 3nd network call isn't made.
         assertEquals("in_app_messages/" + message.messageId + "/click", secondIAMClickRequest.url);
@@ -1116,7 +1174,7 @@ public class InAppMessageIntegrationTests {
         ShadowOneSignalRestClient.setNextSuccessfulRegistrationResponse(new JSONObject() {{
             put("id", "df8f05be55ba-b2f7f966-d8cc-11e4-bed1");
             put("success", 1);
-            put(OSInAppMessageController.IN_APP_MESSAGES_JSON_KEY, jsonMessages);
+            put(OneSignalPackagePrivateHelper.IN_APP_MESSAGES_JSON_KEY, jsonMessages);
         }});
     }
 

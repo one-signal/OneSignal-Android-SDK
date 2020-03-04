@@ -21,7 +21,10 @@ public class OSInAppMessageAction {
     private static final String CLICK_URL = "click_url";
     private static final String FIRST_CLICK = "first_click";
     private static final String CLOSES_MESSAGE = "closes_message";
+    //TODO when backend is ready check if key match
     private static final String OUTCOMES = "outcomes";
+    //TODO when backend is ready check if key match
+    private static final String TAGS = "tags";
 
     /**
      * UUID assigned by OneSignal for internal use.
@@ -54,6 +57,9 @@ public class OSInAppMessageAction {
     @NonNull
     public List<OSInAppMessageOutcome> outcomes;
 
+    /** Tags for action */
+    public OSInAppMessageTag tag;
+
     /**
      * Determines if this was the first action taken on the in app message
      */
@@ -81,6 +87,9 @@ public class OSInAppMessageAction {
                 outcomes.add(new OSInAppMessageOutcome((JSONObject) outcomesJsonArray.get(i)));
             }
         }
+
+        if (json.has(TAGS))
+            tag = new OSInAppMessageTag(json.getJSONObject(TAGS));
     }
 
     public JSONObject toJSONObject() {
@@ -96,6 +105,9 @@ public class OSInAppMessageAction {
                 outcomesJson.put(outcome.toJSONObject());
 
             mainObj.put(OUTCOMES, outcomesJson);
+
+            if (tag != null)
+                mainObj.put(TAGS, tag.toJSONObject());
             // Omitted for now until necessary
 //            if (urlTarget != null)
 //                mainObj.put("url_target", urlTarget.toJSONObject());

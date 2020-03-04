@@ -274,6 +274,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         firePublicClickHandler(action);
         fireClickAction(action);
         fireRESTCallForClick(message, action);
+        fireTagCallForClick(action);
         fireOutcomeForClick(action);
     }
 
@@ -298,6 +299,17 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
             } else {
                 OneSignal.sendClickActionOutcome(name);
             }
+        }
+    }
+
+    private void fireTagCallForClick(@NonNull final OSInAppMessageAction action) {
+        if (action.tag != null) {
+            OSInAppMessageTag tags = action.tag;
+
+            if (tags.getTagsToAdd() != null)
+                OneSignal.sendTags(tags.getTagsToAdd());
+            if (tags.getTagsToRemove() != null)
+                OneSignal.deleteTags(tags.getTagsToRemove(), null);
         }
     }
 
