@@ -285,7 +285,23 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         action.firstClick = message.takeActionAsUnique();
 
         firePublicClickHandler(action);
+        showPrompts(message, action.prompts);
         fireClickAction(action);
+        fireTagsAndOutcomeLogs(action);
+    }
+
+    private void fireTagsAndOutcomeLogs(final OSInAppMessageAction action) {
+        if (action.tags != null) {
+            OSInAppMessageTag tags = action.tags;
+            if (tags.getTagsToAdd() != null)
+                OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "Tags to add detected inside of the action click payload, ignoring because action came from IAM preview:: " + tags.getTagsToAdd());
+            if (tags.getTagsToRemove() != null)
+                OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "Tags to remove detected inside of the action click payload, ignoring because action came from IAM preview: " + tags.getTagsToRemove());
+        }
+
+        for (OSInAppMessageOutcome outcome : action.outcomes) {
+            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "Outcome detected inside of the action click payload, ignoring because action came from IAM preview: " + outcome.toString());
+        }
     }
 
     private void showPrompts(OSInAppMessage message, final List<OSInAppMessagePrompt> prompts) {
