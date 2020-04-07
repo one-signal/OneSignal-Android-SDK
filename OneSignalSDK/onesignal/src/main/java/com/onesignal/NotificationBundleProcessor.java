@@ -153,7 +153,7 @@ class NotificationBundleProcessor {
       if (!notifiJob.isNotificationToDisplay())
          return;
       String notificationId = notifiJob.getApiNotificationId();
-      OutcomesUtils.markLastNotificationReceived(notificationId);
+      OneSignal.getSessionManager().onNotificationReceived(notificationId);
       OSReceiveReceiptController.getInstance().sendReceiveReceipt(notificationId);
    }
 
