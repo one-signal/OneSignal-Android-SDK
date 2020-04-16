@@ -1,13 +1,11 @@
 package com.test.onesignal;
 
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.onesignal.OneSignalPackagePrivateHelper.UserState;
-import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOneSignalRestClient;
-import com.onesignal.ShadowOneSignalRestClient.Request;
 import com.onesignal.ShadowOneSignalRestClient.REST_METHOD;
+import com.onesignal.ShadowOneSignalRestClient.Request;
 
 import org.hamcrest.core.AnyOf;
 import org.json.JSONArray;

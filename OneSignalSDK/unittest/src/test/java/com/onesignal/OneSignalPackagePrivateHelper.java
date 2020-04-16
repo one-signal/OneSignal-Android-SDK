@@ -254,6 +254,8 @@ public class OneSignalPackagePrivateHelper {
 
    public static void OneSignal_setAppContext(Context context) { OneSignal.setAppContext(context); }
 
+   static public class OSSharedPreferencesWrapper extends com.onesignal.OSSharedPreferencesWrapper {}
+
    static public class RemoteOutcomeParams extends OneSignalRemoteParams.InfluenceParams {
 
       public RemoteOutcomeParams() {
