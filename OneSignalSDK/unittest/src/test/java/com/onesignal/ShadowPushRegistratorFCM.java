@@ -36,12 +36,11 @@ import org.robolectric.annotation.RealObject;
 import static org.robolectric.shadow.api.Shadow.directlyOn;
 
 @Implements(PushRegistratorAbstractGoogle.class)
-public class ShadowPushRegistratorGCM {
-
-    @RealObject
-    private PushRegistratorAbstractGoogle realInstance;
-
-    public static final String regId = "aspdfoh0fhj02hr-2h";
+public class ShadowPushRegistratorFCM {
+   
+   @RealObject private PushRegistratorAbstractGoogle realInstance;
+   
+   public static final String regId = "aspdfoh0fhj02hr-2h";
 
     public static boolean fail;
     public static boolean skipComplete;
