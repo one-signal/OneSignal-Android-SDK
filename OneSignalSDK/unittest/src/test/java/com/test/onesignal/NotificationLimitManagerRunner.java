@@ -2,8 +2,8 @@ package com.test.onesignal;
 
 import android.app.NotificationManager;
 import android.content.Context;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.onesignal.OneSignal;
 import com.onesignal.OneSignalPackagePrivateHelper.NotificationLimitManager;
@@ -11,7 +11,7 @@ import com.onesignal.ShadowAdvertisingIdProviderGPS;
 import com.onesignal.ShadowNotificationLimitManager;
 import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOneSignalRestClient;
-import com.onesignal.ShadowPushRegistratorGCM;
+import com.onesignal.ShadowPushRegistratorFCM;
 import com.onesignal.StaticResetHelper;
 import com.onesignal.example.BlankActivity;
 
@@ -26,7 +26,7 @@ import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLog;
 
-import static com.onesignal.OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromGCMIntentService;
+import static com.onesignal.OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromFCMIntentService;
 import static com.test.onesignal.GenerateNotificationRunner.getBaseNotifBundle;
 import static com.test.onesignal.TestHelpers.afterTestCleanup;
 import static com.test.onesignal.TestHelpers.threadAndTaskWait;
@@ -36,7 +36,7 @@ import static junit.framework.Assert.assertEquals;
         instrumentedPackages = { "com.onesignal" },
         shadows = {
             ShadowNotificationLimitManager.class,
-            ShadowPushRegistratorGCM.class,
+            ShadowPushRegistratorFCM.class,
             ShadowOSUtils.class,
             ShadowAdvertisingIdProviderGPS.class,
             ShadowOneSignalRestClient.class
@@ -118,8 +118,8 @@ public class NotificationLimitManagerRunner {
 
    @Test
    public void clearFallbackMakingRoomForOneWhenAtLimit() {
-      NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity,  getBaseNotifBundle("UUID1"), null);
-      NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity,  getBaseNotifBundle("UUID2"), null);
+      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity,  getBaseNotifBundle("UUID1"), null);
+      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity,  getBaseNotifBundle("UUID2"), null);
 
       NotificationLimitManager.clearOldestOverLimitFallback(blankActivity, 1);
 
@@ -128,7 +128,7 @@ public class NotificationLimitManagerRunner {
 
    @Test
    public void clearFallbackShouldNotCancelAnyNotificationsWhenUnderLimit() {
-      NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity,  getBaseNotifBundle("UUID1"), null);
+      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity,  getBaseNotifBundle("UUID1"), null);
 
       NotificationLimitManager.clearOldestOverLimitFallback(blankActivity, 1);
 

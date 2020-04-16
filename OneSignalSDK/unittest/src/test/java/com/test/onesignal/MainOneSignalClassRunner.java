@@ -75,7 +75,7 @@ import com.onesignal.ShadowNotificationManagerCompat;
 import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOneSignal;
 import com.onesignal.ShadowOneSignalRestClient;
-import com.onesignal.ShadowPushRegistratorGCM;
+import com.onesignal.ShadowPushRegistratorFCM;
 import com.onesignal.ShadowRoboNotificationManager;
 import com.onesignal.StaticResetHelper;
 import com.onesignal.SyncJobService;
@@ -113,7 +113,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
-import static com.onesignal.OneSignalPackagePrivateHelper.GcmBroadcastReceiver_processBundle;
+import static com.onesignal.OneSignalPackagePrivateHelper.FCMBroadcastReceiver_processBundle;
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationBundleProcessor_Process;
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationOpenedProcessor_processFromContext;
 import static com.onesignal.OneSignalPackagePrivateHelper.bundleAsJSONObject;
@@ -146,7 +146,7 @@ import static org.robolectric.Shadows.shadowOf;
         instrumentedPackages = { "com.onesignal" },
         shadows = {
             ShadowOneSignalRestClient.class,
-            ShadowPushRegistratorGCM.class,
+            ShadowPushRegistratorFCM.class,
             ShadowOSUtils.class,
             ShadowAdvertisingIdProviderGPS.class,
             ShadowCustomTabsClient.class,
@@ -642,7 +642,7 @@ public class MainOneSignalClassRunner {
    public void testAlwaysUseRemoteProjectNumberOverLocal() throws Exception {
       OneSignalInit();
       threadAndTaskWait();
-      assertEquals("87654321", ShadowPushRegistratorGCM.lastProjectNumber);
+      assertEquals("87654321", ShadowPushRegistratorFCM.lastProjectNumber);
 
       // A 2nd init call
       OneSignalInit();
@@ -655,7 +655,7 @@ public class MainOneSignalClassRunner {
 
       // Make sure when we try to register again before our on_session call it is with the remote
       // project number instead of the local one.
-      assertEquals("87654321", ShadowPushRegistratorGCM.lastProjectNumber);
+      assertEquals("87654321", ShadowPushRegistratorFCM.lastProjectNumber);
    }
 
    @Test
@@ -780,7 +780,7 @@ public class MainOneSignalClassRunner {
       OneSignalInit();
       threadAndTaskWait();
 
-      assertThat(ShadowPushRegistratorGCM.lastProjectNumber, not("123456789"));
+      assertThat(ShadowPushRegistratorFCM.lastProjectNumber, not("123456789"));
    }
 
    @Test
@@ -791,7 +791,7 @@ public class MainOneSignalClassRunner {
       }});
 
       // Don't fire the mock callback, it will be done from the real class.
-      ShadowPushRegistratorGCM.skipComplete = true;
+      ShadowPushRegistratorFCM.skipComplete = true;
 
 //      OneSignal.init(blankActivity, null, ONESIGNAL_APP_ID);
       OneSignal.setAppId(ONESIGNAL_APP_ID);
@@ -812,7 +812,7 @@ public class MainOneSignalClassRunner {
       ShadowOneSignalRestClient.setNextSuccessfulJSONResponse(androidParams);
 
       // Don't fire the mock callback, it will be done from the real class.
-//      ShadowPushRegistratorGCM.skipComplete = true;
+      ShadowPushRegistratorFCM.skipComplete = true;
 
 //      OneSignal.init(blankActivity, null, ONESIGNAL_APP_ID);
       OneSignal.setAppId(ONESIGNAL_APP_ID);
@@ -845,7 +845,7 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       Bundle bundle = getBaseNotifBundle();
-      OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
+      OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
 
       threadAndTaskWait();
 
@@ -942,7 +942,7 @@ public class MainOneSignalClassRunner {
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
 
       Bundle bundle = getBaseNotifBundle();
-      boolean processResult = GcmBroadcastReceiver_processBundle(blankActivity, bundle);
+      boolean processResult = FCMBroadcastReceiver_processBundle(blankActivity, bundle);
       threadAndTaskWait();
 
       assertNull(notificationOpenedMessage);
@@ -958,7 +958,7 @@ public class MainOneSignalClassRunner {
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.None);
       assertNull(notificationOpenedMessage);
 
-      GcmBroadcastReceiver_processBundle(blankActivity, bundle);
+      FCMBroadcastReceiver_processBundle(blankActivity, bundle);
       threadAndTaskWait();
       assertNull(notificationOpenedMessage);
       assertNull(notificationReceivedBody);
@@ -969,7 +969,7 @@ public class MainOneSignalClassRunner {
       notificationOpenedMessage = null;
       notificationReceivedBody = null;
 
-      GcmBroadcastReceiver_processBundle(blankActivity, bundle);
+      FCMBroadcastReceiver_processBundle(blankActivity, bundle);
       threadAndTaskWait();
       assertNull(notificationOpenedMessage);
       assertEquals("Robo test message", notificationReceivedBody);
@@ -1001,8 +1001,8 @@ public class MainOneSignalClassRunner {
    }
 
    @Test
-   public void testUnsubscribeStatusShouldBeSetIfGCMErrored() throws Exception {
-      ShadowPushRegistratorGCM.fail = true;
+   public void testUnsubscribeStatusShouldBeSetIfFCMErrored() throws Exception {
+      ShadowPushRegistratorFCM.fail = true;
       OneSignalInit();
       threadAndTaskWait();
       assertEquals(-7, ShadowOneSignalRestClient.lastPost.getInt("notification_types"));
@@ -1013,7 +1013,7 @@ public class MainOneSignalClassRunner {
       GetIdsAvailable();
       // A more real test would be "missing support library" but bad project number is an easier setup
       //   and is testing the same logic.
-      ShadowPushRegistratorGCM.fail = true;
+      ShadowPushRegistratorFCM.fail = true;
 //      OneSignalInitWithBadProjectNum();
       OneSignalInit();
       threadAndTaskWait();
@@ -1022,13 +1022,13 @@ public class MainOneSignalClassRunner {
       assertEquals(-7, ShadowOneSignalRestClient.lastPost.getInt("notification_types"));
       // Test that idsAvailable still fires
       assertEquals(ShadowOneSignalRestClient.pushUserId, callBackUseId);
-      assertNull(getCallBackRegId); // Since GCM registration failed, this should be null
+      assertNull(getCallBackRegId); // Since FCM registration failed, this should be null
 
       // We now get a push token after the device registers with Onesignal,
       //    the idsAvailable callback should fire a 2nd time with a registrationId automatically
-      ShadowPushRegistratorGCM.manualFireRegisterForPush();
+      ShadowPushRegistratorFCM.manualFireRegisterForPush();
       threadAndTaskWait();
-      assertEquals(ShadowPushRegistratorGCM.regId, getCallBackRegId);
+      assertEquals(ShadowPushRegistratorFCM.regId, getCallBackRegId);
    }
 
    @Test
@@ -1040,7 +1040,7 @@ public class MainOneSignalClassRunner {
       ShadowOneSignalRestClient.lastPost = null;
       restartAppAndElapseTimeToNextSession();
 
-      ShadowPushRegistratorGCM.fail = true;
+      ShadowPushRegistratorFCM.fail = true;
       OneSignalInit();
       threadAndTaskWait();
       assertFalse(ShadowOneSignalRestClient.lastPost.has("notification_types"));
@@ -1049,7 +1049,7 @@ public class MainOneSignalClassRunner {
    @Test
    public void testInvalidGoogleProjectNumberWithFailedRegisterResponse() throws Exception {
       // Ensures lower number notification_types do not over right higher numbered ones.
-      ShadowPushRegistratorGCM.fail = true;
+      ShadowPushRegistratorFCM.fail = true;
       GetIdsAvailable();
 //      OneSignalInitWithBadProjectNum();
       OneSignalInit();
@@ -1066,10 +1066,10 @@ public class MainOneSignalClassRunner {
       GetIdsAvailable();
       OneSignalInit();
       threadAndTaskWait();
-      assertEquals(ShadowPushRegistratorGCM.regId, ShadowOneSignalRestClient.lastPost.getString("identifier"));
+      assertEquals(ShadowPushRegistratorFCM.regId, ShadowOneSignalRestClient.lastPost.getString("identifier"));
 
       Robolectric.getForegroundThreadScheduler().runOneTask();
-      assertEquals(ShadowPushRegistratorGCM.regId, getCallBackRegId);
+      assertEquals(ShadowPushRegistratorFCM.regId, getCallBackRegId);
 
       OneSignal.setSubscription(false);
       GetIdsAvailable();
@@ -1137,14 +1137,14 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void shouldUpdateNotificationTypesCorrectlyEvenWhenSetSubscriptionIsCalledInAnErrorState() throws Exception {
-      ShadowPushRegistratorGCM.fail = true;
+      ShadowPushRegistratorFCM.fail = true;
       OneSignalInit();
       threadAndTaskWait();
       OneSignal.setSubscription(true);
 
       // Restart app - Should send subscribe with on_session call.
       fastColdRestartApp();
-      ShadowPushRegistratorGCM.fail = false;
+      ShadowPushRegistratorFCM.fail = false;
       OneSignalInit();
       threadAndTaskWait();
       assertEquals(1, ShadowOneSignalRestClient.lastPost.getInt("notification_types"));
@@ -1183,7 +1183,7 @@ public class MainOneSignalClassRunner {
    @Test
    public void shouldNotFireIdsAvailableWithoutUserId() throws Exception {
       ShadowOneSignalRestClient.failNext = true;
-      ShadowPushRegistratorGCM.fail = true;
+      ShadowPushRegistratorFCM.fail = true;
 
       OneSignal.idsAvailable(new OneSignal.IdsAvailableHandler() {
          @Override
@@ -1199,18 +1199,18 @@ public class MainOneSignalClassRunner {
    }
 
    @Test
-   public void testGCMTimeOutThenSuccessesLater() throws Exception {
+   public void testFCMTimeOutThenSuccessesLater() throws Exception {
       // Init with a bad connection to Google.
-      ShadowPushRegistratorGCM.fail = true;
+      ShadowPushRegistratorFCM.fail = true;
       OneSignalInit();
       threadAndTaskWait();
       assertFalse(ShadowOneSignalRestClient.lastPost.has("identifier"));
 
-      // Registers for GCM after a retry
-      ShadowPushRegistratorGCM.fail = false;
-      ShadowPushRegistratorGCM.manualFireRegisterForPush();
+      // Registers for FCM after a retry
+      ShadowPushRegistratorFCM.fail = false;
+      ShadowPushRegistratorFCM.manualFireRegisterForPush();
       threadAndTaskWait();
-      assertEquals(ShadowPushRegistratorGCM.regId, ShadowOneSignalRestClient.lastPost.getString("identifier"));
+      assertEquals(ShadowPushRegistratorFCM.regId, ShadowOneSignalRestClient.lastPost.getString("identifier"));
 
       // Cold restart app, should not send the same identifier again.
       ShadowOneSignalRestClient.lastPost = null;
@@ -1703,7 +1703,7 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void shouldNotAttemptToSendTagsBeforeGettingPlayerId() throws Exception {
-      ShadowPushRegistratorGCM.skipComplete = true;
+      ShadowPushRegistratorFCM.skipComplete = true;
       OneSignalInit();
       GetIdsAvailable();
       threadAndTaskWait();
@@ -1716,7 +1716,7 @@ public class MainOneSignalClassRunner {
 
       assertEquals(1, ShadowOneSignalRestClient.networkCallCount);
 
-      ShadowPushRegistratorGCM.fireLastCallback();
+      ShadowPushRegistratorFCM.fireLastCallback();
       threadAndTaskWait();
 
       assertEquals(2, ShadowOneSignalRestClient.networkCallCount);
@@ -1828,13 +1828,13 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void shouldCreatePlayerAfterDelayedTokenFromApplicationOnCreate() throws Exception {
-      ShadowPushRegistratorGCM.skipComplete = true;
+      ShadowPushRegistratorFCM.skipComplete = true;
       OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity.getApplicationContext());
       blankActivityController.resume();
       threadAndTaskWait();
 
-      ShadowPushRegistratorGCM.fireLastCallback();
+      ShadowPushRegistratorFCM.fireLastCallback();
       threadAndTaskWait();
 
       ShadowOneSignalRestClient.Request createPlayer = ShadowOneSignalRestClient.requests.get(1);
@@ -3309,7 +3309,7 @@ public class MainOneSignalClassRunner {
       ShadowOneSignalRestClient.Request request = ShadowOneSignalRestClient.requests.get(1);
       assertEquals(REST_METHOD.POST, request.method);
       assertEquals(1, request.payload.get("device_type"));
-      assertEquals(ShadowPushRegistratorGCM.regId, request.payload.get("identifier"));
+      assertEquals(ShadowPushRegistratorFCM.regId, request.payload.get("identifier"));
    }
 
    @Test
@@ -3388,9 +3388,9 @@ public class MainOneSignalClassRunner {
 
       // Create 2 notifications
       Bundle bundle = getBaseNotifBundle();
-      OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
+      OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
       bundle = getBaseNotifBundle("UUID2");
-      OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
+      OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
 
       // Test canceling
       Map<Integer, ShadowRoboNotificationManager.PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
@@ -3491,6 +3491,8 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void shouldFirePermissionObserverWhenUserDisablesNotifications() throws Exception {
+      OneSignal.unsubscribeWhenNotificationsAreDisabled(false);
+
       OneSignalInit();
       threadAndTaskWait();
 
@@ -3579,6 +3581,7 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void shouldFireSubscriptionObserverWhenUserDisablesNotifications() throws Exception {
+      OneSignal.unsubscribeWhenNotificationsAreDisabled(false);
       OneSignalInit();
       threadAndTaskWait();
 
@@ -3626,7 +3629,7 @@ public class MainOneSignalClassRunner {
       // Test to make sure object was correct at the time of firing.
       assertTrue(currentSubscription);
       assertTrue(lastSubscriptionStateChanges.getTo().getUserSubscriptionSetting());
-      assertEquals(ShadowPushRegistratorGCM.regId, lastSubscriptionStateChanges.getTo().getPushToken());
+      assertEquals(ShadowPushRegistratorFCM.regId, lastSubscriptionStateChanges.getTo().getPushToken());
       assertEquals(ShadowOneSignalRestClient.pushUserId, lastSubscriptionStateChanges.getTo().getUserId());
    }
 
@@ -4076,7 +4079,6 @@ public class MainOneSignalClassRunner {
       ShadowOSUtils.subscribableStatus = 1;
       OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity);
-//      OneSignal_setGoogleProjectNumber("87654321");
       blankActivityController.resume();
    }
 
@@ -4084,16 +4086,8 @@ public class MainOneSignalClassRunner {
       OneSignal.setLogLevel(OneSignal.LOG_LEVEL.DEBUG, OneSignal.LOG_LEVEL.NONE);
       OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity.getApplicationContext());
-//      OneSignal_setGoogleProjectNumber("87654321");
       blankActivityController.resume();
    }
-
-//   private void OneSignalInitWithBadProjectNum() {
-//      ShadowOSUtils.subscribableStatus = -6;
-//      OneSignal.setAppId(ONESIGNAL_APP_ID);
-//      OneSignal.setAppContext(blankActivity.getApplicationContext());
-//      OneSignal_setGoogleProjectNumber("NOT A VALID Google project number");
-//   }
 
    // For some reason Roboelctric does not automatically add this when it reads the AndroidManifest.xml
    //    Also it seems it has to be done in the test itself instead of the setup process.

@@ -36,7 +36,7 @@ import org.robolectric.annotation.RealObject;
 import static org.robolectric.shadow.api.Shadow.directlyOn;
 
 @Implements(PushRegistratorAbstractGoogle.class)
-public class ShadowPushRegistratorGCM {
+public class ShadowPushRegistratorFCM {
    
    @RealObject private PushRegistratorAbstractGoogle realInstance;
    
