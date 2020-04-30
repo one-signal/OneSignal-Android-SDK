@@ -118,7 +118,6 @@ import java.util.regex.Pattern;
 import static com.onesignal.OneSignalPackagePrivateHelper.FCMBroadcastReceiver_processBundle;
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationBundleProcessor_Process;
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationOpenedProcessor_processFromContext;
-import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setAppId;
 import static com.onesignal.OneSignalPackagePrivateHelper.bundleAsJSONObject;
 import static com.onesignal.ShadowOneSignalRestClient.REST_METHOD;
 import static com.test.onesignal.GenerateNotificationRunner.getBaseNotifBundle;
@@ -324,8 +323,8 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       // 4. Set OneSignal.appId and context simulating a background sync doing so
+      OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity.getApplicationContext());
-      OneSignal_setAppId(ONESIGNAL_APP_ID);
 
       // 5. Foreground app and trigger new session
       blankActivityController.resume();
@@ -354,8 +353,8 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       // 5. Set OneSignal.appId and context simulating a background sync doing so
+      OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity.getApplicationContext());
-      OneSignal_setAppId(ONESIGNAL_APP_ID);
 
       // 6. Foreground app and trigger new session
       blankActivityController.resume();

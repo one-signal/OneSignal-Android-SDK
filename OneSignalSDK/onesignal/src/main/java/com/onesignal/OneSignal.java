@@ -43,6 +43,8 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
+
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.onesignal.OneSignalDbContract.NotificationTable;
@@ -621,7 +623,7 @@ public class OneSignal {
         }
 
         appId = newAppId;
-        SaveAppId(newAppId);
+        saveAppId(newAppId);
 
         OneSignal.onesignalLog(LOG_LEVEL.VERBOSE, "setAppId(id) finished, checking if appContext has been set before proceeding...");
         if (appContext == null) {

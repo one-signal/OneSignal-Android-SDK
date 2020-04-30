@@ -27,6 +27,10 @@
 
 package com.onesignal;
 
+import android.util.Base64;
+
+import androidx.annotation.NonNull;
+
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.iid.FirebaseInstanceId;
@@ -71,7 +75,8 @@ class PushRegistratorFCM extends PushRegistratorAbstractGoogle {
       firebaseApp = FirebaseApp.initializeApp(OneSignal.appContext, firebaseOptions, FCM_APP_NAME);
    }
 
-   private static @NonNull String getAppId() {
+   private static @NonNull
+   String getAppId() {
       if (OneSignal.remoteParams.fcmParams.appId != null)
          return OneSignal.remoteParams.fcmParams.appId;
       return FCM_DEFAULT_APP_ID;

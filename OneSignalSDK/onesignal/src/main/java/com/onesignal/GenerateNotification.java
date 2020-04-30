@@ -223,9 +223,9 @@ class GenerateNotification {
       else
          notificationDefaults |= Notification.DEFAULT_LIGHTS;
 
-      if (OneSignal.getVibrate() && gcmBundle.optInt("vib", 1) == 1) {
-         if (gcmBundle.has("vib_pt")) {
-            long[] vibrationPattern = OSUtils.parseVibrationPattern(gcmBundle);
+      if (OneSignal.getVibrate() && fcmJson.optInt("vib", 1) == 1) {
+         if (fcmJson.has("vib_pt")) {
+            long[] vibrationPattern = OSUtils.parseVibrationPattern(fcmJson);
             if (vibrationPattern != null)
                notifBuilder.setVibrate(vibrationPattern);
          }
