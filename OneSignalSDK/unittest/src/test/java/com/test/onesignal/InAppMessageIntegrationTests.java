@@ -8,6 +8,7 @@ import com.onesignal.MockOSLog;
 import com.onesignal.MockOSSharedPreferences;
 import com.onesignal.MockOneSignalDBHelper;
 import com.onesignal.MockSessionManager;
+import com.onesignal.OSInAppMessageAction;
 import com.onesignal.OneSignal;
 import com.onesignal.OneSignalPackagePrivateHelper;
 import com.onesignal.OneSignalPackagePrivateHelper.OSTestInAppMessage;
@@ -63,6 +64,7 @@ import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setSessionMa
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setSharedPreferences;
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setTrackerFactory;
 import static com.test.onesignal.TestHelpers.advanceSystemTimeBy;
+import static com.test.onesignal.TestHelpers.assertMainThread;
 import static com.test.onesignal.TestHelpers.fastColdRestartApp;
 import static com.test.onesignal.TestHelpers.threadAndTaskWait;
 import static junit.framework.Assert.assertEquals;
@@ -137,7 +139,7 @@ public class InAppMessageIntegrationTests {
         // reset back to the default
         ShadowDynamicTimer.shouldScheduleTimers = true;
         ShadowDynamicTimer.hasScheduledTimer = false;
-
+        OneSignal.getCurrentOrNewInitBuilder().setInAppMessageClickHandler(null);
         TestHelpers.afterTestCleanup();
 
         InAppMessagingHelpers.clearTestState();
@@ -631,6 +633,160 @@ public class InAppMessageIntegrationTests {
         assertEquals(IAM_OUTCOME_NAME, iamOutcomeRequest.payload.get("id"));
         assertFalse(iamOutcomeRequest.payload.has("direct"));
         assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
+    }
+
+    @Test
+    public void testOnMessageActionOccurredOnMessageSendOutcomeV2() throws Exception {
+        // Enable IAM v2
+        preferences = new MockOSSharedPreferences();
+        preferences.saveBool(preferences.getPreferencesName(), preferences.getOutcomesV2KeyName(), true);
+        trackerFactory = new OSTrackerFactory(preferences, new MockOSLog());
+        sessionManager = new MockSessionManager(OneSignal_getSessionListener(), trackerFactory, new MockOSLog());
+
+        OneSignal_setSharedPreferences(preferences);
+        OneSignal_setTrackerFactory(trackerFactory);
+        OneSignal_setSessionManager(sessionManager);
+
+        final OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWithSingleTrigger(
+                OSTriggerKind.CUSTOM, "test_1", OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2);
+
+        setMockRegistrationResponseWithMessages(new ArrayList<OSTestInAppMessage>() {{
+            add(message);
+        }});
+
+        // 1. Init OneSignal
+        OneSignalInit();
+        threadAndTaskWait();
+
+        // Enable influence outcomes
+        trackerFactory.saveInfluenceParams(new OneSignalPackagePrivateHelper.RemoteOutcomeParams());
+
+        final OSInAppMessageAction[] lastAction = new OSInAppMessageAction[1];
+        OneSignal.getCurrentOrNewInitBuilder().setInAppMessageClickHandler(new OneSignal.InAppMessageClickHandler() {
+            @Override
+            public void inAppMessageClicked(OSInAppMessageAction result) {
+                lastAction[0] = result;
+                // Ensure we are on the main thread when running the callback, since the app developer
+                //   will most likely need to update UI.
+                assertMainThread();
+
+                OneSignal.sendOutcome("test");
+                // Ensure outcome is sent
+                ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(4);
+
+                assertEquals("outcomes/measure_sources", iamOutcomeRequest.url);
+                // Requests: Param request + Players Request + IAM Request + Impression + Outcome Request
+                assertEquals(5, ShadowOneSignalRestClient.requests.size());
+                assertFalse(iamOutcomeRequest.payload.has("weight"));
+                try {
+                    // Check outcome was DIRECT from IAM
+                    assertEquals("test", iamOutcomeRequest.payload.get("id"));
+                    assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
+                    JSONObject sources = iamOutcomeRequest.payload.getJSONObject("sources");
+                    JSONObject direct = sources.getJSONObject("direct");
+                    JSONArray iamIds = direct.getJSONArray("in_app_message_ids");
+                    assertEquals(0, direct.getJSONArray("notification_ids").length());
+                    assertEquals(1, iamIds.length());
+                    assertEquals(message.messageId, iamIds.get(0));
+                    assertFalse(sources.has("indirect"));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        threadAndTaskWait();
+
+        // Add trigger to make IAM display
+        OneSignal.addTrigger("test_1", 2);
+        assertEquals(1, OneSignalPackagePrivateHelper.getInAppMessageDisplayQueue().size());
+
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message,
+                new JSONObject() {{
+                    put("id", "button_id_123");
+                    put("name", "my_click_name");
+                }}
+        );
+
+        // Ensure we fire public callback that In-App was clicked.
+        assertEquals(lastAction[0].clickName, "my_click_name");
+    }
+
+    @Test
+    public void testOnMessageActionOccurredOnMessageSendOutcomeV2AfterDismiss() throws Exception {
+        // Enable IAM v2
+        preferences = new MockOSSharedPreferences();
+        preferences.saveBool(preferences.getPreferencesName(), preferences.getOutcomesV2KeyName(), true);
+        trackerFactory = new OSTrackerFactory(preferences, new MockOSLog());
+        sessionManager = new MockSessionManager(OneSignal_getSessionListener(), trackerFactory, new MockOSLog());
+
+        OneSignal_setSharedPreferences(preferences);
+        OneSignal_setTrackerFactory(trackerFactory);
+        OneSignal_setSessionManager(sessionManager);
+
+        final OSTestInAppMessage message = InAppMessagingHelpers.buildTestMessageWithSingleTrigger(
+                OSTriggerKind.CUSTOM, "test_1", OSTestTrigger.OSTriggerOperator.EQUAL_TO.toString(), 2);
+
+        setMockRegistrationResponseWithMessages(new ArrayList<OSTestInAppMessage>() {{
+            add(message);
+        }});
+
+        // 1. Init OneSignal
+        OneSignalInit();
+        threadAndTaskWait();
+
+        // Enable influence outcomes
+        trackerFactory.saveInfluenceParams(new OneSignalPackagePrivateHelper.RemoteOutcomeParams());
+
+        final OSInAppMessageAction[] lastAction = new OSInAppMessageAction[1];
+        OneSignal.getCurrentOrNewInitBuilder().setInAppMessageClickHandler(new OneSignal.InAppMessageClickHandler() {
+            @Override
+            public void inAppMessageClicked(OSInAppMessageAction result) {
+                lastAction[0] = result;
+                // Ensure we are on the main thread when running the callback, since the app developer
+                //   will most likely need to update UI.
+                assertMainThread();
+            }
+        });
+        threadAndTaskWait();
+
+        // Add trigger to make IAM display
+        OneSignal.addTrigger("test_1", 2);
+        assertEquals(1, OneSignalPackagePrivateHelper.getInAppMessageDisplayQueue().size());
+
+        OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message,
+                new JSONObject() {{
+                    put("id", "button_id_123");
+                    put("name", "my_click_name");
+                }}
+        );
+
+        // Ensure we fire public callback that In-App was clicked.
+        assertEquals(lastAction[0].clickName, "my_click_name");
+
+        OneSignalPackagePrivateHelper.dismissCurrentMessage();
+
+        OneSignal.sendOutcome("test1");
+        // Ensure outcome is sent but with INDIRECT influence from IAM
+        ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(5);
+
+        assertEquals("outcomes/measure_sources", iamOutcomeRequest.url);
+        // Requests: Param request + Players Request + IAM Request + Impression + Click + Outcome Request
+        assertEquals(6, ShadowOneSignalRestClient.requests.size());
+        assertFalse(iamOutcomeRequest.payload.has("weight"));
+        try {
+            // Check outcome was INDIRECT from IAM
+            assertEquals("test1", iamOutcomeRequest.payload.get("id"));
+            assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
+            JSONObject sources = iamOutcomeRequest.payload.getJSONObject("sources");
+            JSONObject indirect = sources.getJSONObject("indirect");
+            JSONArray iamIds = indirect.getJSONArray("in_app_message_ids");
+            assertEquals(0, indirect.getJSONArray("notification_ids").length());
+            assertEquals(1, iamIds.length());
+            assertEquals(message.messageId, iamIds.get(0));
+            assertFalse(sources.has("direct"));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
