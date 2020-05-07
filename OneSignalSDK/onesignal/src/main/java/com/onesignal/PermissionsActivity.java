@@ -28,8 +28,11 @@
 package com.onesignal;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -44,10 +47,11 @@ public class PermissionsActivity extends Activity {
    // Default animation duration in milliseconds
    private static final int DELAY_TIME_CALLBACK_CALL = 500;
    private static final int REQUEST_LOCATION = 2;
+   private static final int REQUEST_SETTINGS = 3;
 
-   static boolean waiting, answered;
+   static boolean waiting, answered, fallbackToSettings;
    private static ActivityLifecycleHandler.ActivityAvailableListener activityAvailableListener;
-   
+
    @Override
    protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
@@ -104,10 +108,15 @@ public class PermissionsActivity extends Activity {
             public void run() {
                boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
                LocationGMS.sendAndClearPromptHandlers(true, granted);
-               if (granted)
+               if (granted) {
                   LocationGMS.startGetLocation();
-               else
+               } else {
+                  if (fallbackToSettings &&
+                          !ActivityCompat.shouldShowRequestPermissionRationale(PermissionsActivity.this, LocationGMS.requestPermission)) {
+                     showLocationPermissionSettings();
+                  }
                   LocationGMS.fireFailedComplete();
+               }
             }
          }, DELAY_TIME_CALLBACK_CALL);
       }
@@ -116,11 +125,32 @@ public class PermissionsActivity extends Activity {
       overridePendingTransition(R.anim.onesignal_fade_in, R.anim.onesignal_fade_out);
    }
 
+   private void showLocationPermissionSettings() {
+      new AlertDialog.Builder(ActivityLifecycleHandler.curActivity)
+              .setTitle(R.string.location_not_available_title)
+              .setMessage(R.string.location_not_available_open_settings)
+              .setPositiveButton(R.string.settings, new DialogInterface.OnClickListener() {
+                 public void onClick(DialogInterface dialog, int which) {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                    LocationGMS.sendAndClearPromptHandlers(true, false);
+                 }
+              })
+              .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                 @Override
+                 public void onClick(DialogInterface dialog, int which) {
+                    LocationGMS.sendAndClearPromptHandlers(true, false);
+                 }
+              })
+              .show();
+   }
 
-   static void startPrompt() {
+   static void startPrompt(boolean fallbackCondition) {
       if (PermissionsActivity.waiting || PermissionsActivity.answered)
          return;
 
+      fallbackToSettings = fallbackCondition;
       activityAvailableListener = new ActivityLifecycleHandler.ActivityAvailableListener() {
          @Override
          public void available(@NonNull Activity activity) {

@@ -4,4 +4,6 @@
     <string name="location_not_available_title">Location Not Available</string>
     <string name="location_not_available_message">Looks like this app doesn\'t have location permissions granted</string>
 
+    <string name="location_not_available_open_settings">We need location for user .....complete text</string>
+    <string name="settings">Settings</string>
 </resources>
