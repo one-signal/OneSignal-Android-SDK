@@ -49,7 +49,7 @@ public class PermissionsActivity extends Activity {
    private static final int REQUEST_LOCATION = 2;
    private static final int REQUEST_SETTINGS = 3;
 
-   static boolean waiting, answered, fallbackToSettings;
+   static boolean waiting, answered, fallbackToSettings, neverAskAgainClicked;
    private static ActivityLifecycleHandler.ActivityAvailableListener activityAvailableListener;
 
    @Override
@@ -87,6 +87,7 @@ public class PermissionsActivity extends Activity {
 
       if (!waiting) {
          waiting = true;
+         neverAskAgainClicked = !ActivityCompat.shouldShowRequestPermissionRationale(PermissionsActivity.this, LocationGMS.requestPermission);
          ActivityCompat.requestPermissions(this, new String[]{LocationGMS.requestPermission}, REQUEST_LOCATION);
       }
    }
@@ -112,6 +113,7 @@ public class PermissionsActivity extends Activity {
                   LocationGMS.startGetLocation();
                } else {
                   if (fallbackToSettings &&
+                          neverAskAgainClicked &&
                           !ActivityCompat.shouldShowRequestPermissionRationale(PermissionsActivity.this, LocationGMS.requestPermission)) {
                      showLocationPermissionSettings();
                   }
