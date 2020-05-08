@@ -92,7 +92,7 @@ public class OneSignalRemoteParams {
    private static int androidParamsRetries = 0;
 
    private static final String OUTCOME_PARAM = "outcomes";
-   private static final String OUTCOMES_V2_SERVICE_PARAM = "outcomes_v2_service_enabled";
+   private static final String OUTCOMES_V2_SERVICE_PARAM = "v2_enabled";
    private static final String ENABLED_PARAM = "enabled";
    private static final String DIRECT_PARAM = "direct";
    private static final String INDIRECT_PARAM = "indirect";

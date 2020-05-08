@@ -24,11 +24,11 @@ public class OSOutcomeEventsFactory {
         if (repository == null)
             createRepository();
         else
-            checkVersionChanged();
+            validateRepositoryVersion();
         return repository;
     }
 
-    private void checkVersionChanged() {
+    private void validateRepositoryVersion() {
         if (!outcomeEventsCache.isOutcomesV2ServiceEnabled() && repository instanceof OSOutcomeEventsV1Repository)
             return;
         if (outcomeEventsCache.isOutcomesV2ServiceEnabled() && repository instanceof OSOutcomeEventsV2Repository)

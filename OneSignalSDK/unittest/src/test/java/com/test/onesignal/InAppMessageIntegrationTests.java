@@ -63,6 +63,7 @@ import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_getSessionLi
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setSessionManager;
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setSharedPreferences;
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setTrackerFactory;
+import static com.test.onesignal.RestClientAsserts.assertMeasureOnV2AtIndex;
 import static com.test.onesignal.TestHelpers.advanceSystemTimeBy;
 import static com.test.onesignal.TestHelpers.assertMainThread;
 import static com.test.onesignal.TestHelpers.fastColdRestartApp;
@@ -577,21 +578,7 @@ public class InAppMessageIntegrationTests {
         OneSignalPackagePrivateHelper.onMessageActionOccurredOnMessage(message, action);
 
         // 3. Ensure outcome is sent
-        ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(3);
-
-        assertEquals("outcomes/measure_sources", iamOutcomeRequest.url);
-        // Requests: Param request + Players Request + Click request + Outcome Request
-        assertEquals(4, ShadowOneSignalRestClient.requests.size());
-        assertFalse(iamOutcomeRequest.payload.has("weight"));
-        assertEquals(IAM_OUTCOME_NAME, iamOutcomeRequest.payload.get("id"));
-        assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
-        JSONObject sources = iamOutcomeRequest.payload.getJSONObject("sources");
-        JSONObject direct = sources.getJSONObject("direct");
-        JSONArray iamIds = direct.getJSONArray("in_app_message_ids");
-        assertEquals(0, direct.getJSONArray("notification_ids").length());
-        assertEquals(1, iamIds.length());
-        assertEquals(message.messageId, iamIds.get(0));
-        assertFalse(sources.has("indirect"));
+        assertMeasureOnV2AtIndex(3, "outcome_name", new JSONArray().put(message.messageId), new JSONArray(), null, null);
     }
 
     @Test
@@ -636,7 +623,7 @@ public class InAppMessageIntegrationTests {
     }
 
     @Test
-    public void testOnMessageActionOccurredOnMessageSendOutcomeV2() throws Exception {
+    public void testOnIAMActionSendsOutcome_usingOutcomesV2() throws Exception {
         // Enable IAM v2
         preferences = new MockOSSharedPreferences();
         preferences.saveBool(preferences.getPreferencesName(), preferences.getOutcomesV2KeyName(), true);
@@ -671,24 +658,9 @@ public class InAppMessageIntegrationTests {
                 assertMainThread();
 
                 OneSignal.sendOutcome("test");
-                // Ensure outcome is sent
-                ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(4);
-
-                assertEquals("outcomes/measure_sources", iamOutcomeRequest.url);
-                // Requests: Param request + Players Request + IAM Request + Impression + Outcome Request
-                assertEquals(5, ShadowOneSignalRestClient.requests.size());
-                assertFalse(iamOutcomeRequest.payload.has("weight"));
                 try {
-                    // Check outcome was DIRECT from IAM
-                    assertEquals("test", iamOutcomeRequest.payload.get("id"));
-                    assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
-                    JSONObject sources = iamOutcomeRequest.payload.getJSONObject("sources");
-                    JSONObject direct = sources.getJSONObject("direct");
-                    JSONArray iamIds = direct.getJSONArray("in_app_message_ids");
-                    assertEquals(0, direct.getJSONArray("notification_ids").length());
-                    assertEquals(1, iamIds.length());
-                    assertEquals(message.messageId, iamIds.get(0));
-                    assertFalse(sources.has("indirect"));
+                    // Ensure outcome is sent
+                    assertMeasureOnV2AtIndex(4, "test", new JSONArray().put(message.messageId), new JSONArray(), null, null);
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -712,7 +684,7 @@ public class InAppMessageIntegrationTests {
     }
 
     @Test
-    public void testOnMessageActionOccurredOnMessageSendOutcomeV2AfterDismiss() throws Exception {
+    public void testOnIAMActionSendsOutcome_afterDismiss_usingOutcomesV2() throws Exception {
         // Enable IAM v2
         preferences = new MockOSSharedPreferences();
         preferences.saveBool(preferences.getPreferencesName(), preferences.getOutcomesV2KeyName(), true);
@@ -766,24 +738,9 @@ public class InAppMessageIntegrationTests {
         OneSignalPackagePrivateHelper.dismissCurrentMessage();
 
         OneSignal.sendOutcome("test1");
-        // Ensure outcome is sent but with INDIRECT influence from IAM
-        ShadowOneSignalRestClient.Request iamOutcomeRequest = ShadowOneSignalRestClient.requests.get(5);
-
-        assertEquals("outcomes/measure_sources", iamOutcomeRequest.url);
-        // Requests: Param request + Players Request + IAM Request + Impression + Click + Outcome Request
-        assertEquals(6, ShadowOneSignalRestClient.requests.size());
-        assertFalse(iamOutcomeRequest.payload.has("weight"));
         try {
-            // Check outcome was INDIRECT from IAM
-            assertEquals("test1", iamOutcomeRequest.payload.get("id"));
-            assertEquals(1, iamOutcomeRequest.payload.get("device_type"));
-            JSONObject sources = iamOutcomeRequest.payload.getJSONObject("sources");
-            JSONObject indirect = sources.getJSONObject("indirect");
-            JSONArray iamIds = indirect.getJSONArray("in_app_message_ids");
-            assertEquals(0, indirect.getJSONArray("notification_ids").length());
-            assertEquals(1, iamIds.length());
-            assertEquals(message.messageId, iamIds.get(0));
-            assertFalse(sources.has("direct"));
+            // Ensure outcome is sent but with INDIRECT influence from IAM
+            assertMeasureOnV2AtIndex(5, "test1", null, null, new JSONArray().put(message.messageId), new JSONArray());
         } catch (JSONException e) {
             e.printStackTrace();
         }

@@ -1045,7 +1045,7 @@ public class OneSignal {
             OneSignalPrefs.saveBool(
                OneSignalPrefs.PREFS_ONESIGNAL,
                preferences.getOutcomesV2KeyName(),
-                    params.influenceParams.outcomesV2ServiceEnabled
+               params.influenceParams.outcomesV2ServiceEnabled
             );
             logger.debug("OneSignal saveInfluenceParams: " + params.influenceParams.toString());
             trackerFactory.saveInfluenceParams(params.influenceParams);
