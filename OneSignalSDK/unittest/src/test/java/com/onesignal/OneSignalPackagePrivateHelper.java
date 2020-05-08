@@ -16,7 +16,6 @@ import org.robolectric.util.Scheduler;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -175,7 +174,7 @@ public class OneSignalPackagePrivateHelper {
       NotificationGenerationJob notifJob = new NotificationGenerationJob(context);
       notifJob.jsonPayload = jsonPayload;
       notifJob.overrideSettings = overrideSettings;
-      notifJob.restoring = restoring;
+      notifJob.isRestoring = restoring;
       return NotificationBundleProcessor.ProcessJobForDisplay(notifJob);
    }
 

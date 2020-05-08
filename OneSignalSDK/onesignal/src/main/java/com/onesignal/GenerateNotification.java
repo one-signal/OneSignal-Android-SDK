@@ -91,7 +91,7 @@ class GenerateNotification {
    static void fromJsonPayload(NotificationGenerationJob notifJob) {
       setStatics(notifJob.context);
 
-      if (!notifJob.restoring && notifJob.showAsAlert && ActivityLifecycleHandler.curActivity != null) {
+      if (!notifJob.isRestoring && ActivityLifecycleHandler.curActivity != null) {
          showNotificationAsAlert(notifJob.jsonPayload, ActivityLifecycleHandler.curActivity, notifJob.getAndroidId());
          return;
       }
@@ -343,7 +343,7 @@ class GenerateNotification {
       applyNotificationExtender(notifJob, notifBuilder);
       
       // Keeps notification from playing sound + vibrating again
-      if (notifJob.restoring)
+      if (notifJob.isRestoring)
          removeNotifyOptions(notifBuilder);
 
       int makeRoomFor = 1;
@@ -430,7 +430,7 @@ class GenerateNotification {
 
          notifJob.overriddenBodyFromExtender = mContentText;
          notifJob.overriddenTitleFromExtender = mContentTitle;
-         if (!notifJob.restoring) {
+         if (!notifJob.isRestoring) {
             notifJob.overriddenFlags = mNotification.flags;
             notifJob.overriddenSound = mNotification.sound;
          }
@@ -446,7 +446,7 @@ class GenerateNotification {
       // Includes Android 4.3 through 6.0.1. Android 7.1 handles this correctly without this.
       // Android 4.2 and older just post the summary only.
       boolean singleNotifWorkArounds = Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1 && Build.VERSION.SDK_INT < Build.VERSION_CODES.N
-                                       && !notifJob.restoring;
+                                       && !notifJob.isRestoring;
       
       if (singleNotifWorkArounds) {
          if (notifJob.overriddenSound != null && !notifJob.overriddenSound.equals(notifJob.orgSound))
@@ -484,7 +484,7 @@ class GenerateNotification {
 
    // This summary notification will be visible instead of the normal one on pre-Android 7.0 devices.
    private static void createSummaryNotification(NotificationGenerationJob notifJob, OneSignalNotificationBuilder notifBuilder) {
-      boolean updateSummary = notifJob.restoring;
+      boolean updateSummary = notifJob.isRestoring;
       JSONObject fcmJson = notifJob.jsonPayload;
 
       String group = fcmJson.optString("grp", null);

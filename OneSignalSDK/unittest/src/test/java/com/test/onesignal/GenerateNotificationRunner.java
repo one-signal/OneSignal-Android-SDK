@@ -28,7 +28,6 @@
 package com.test.onesignal;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.job.JobScheduler;
@@ -46,7 +45,6 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import android.widget.Button;
 
 import com.onesignal.BundleCompat;
 import com.onesignal.FCMBroadcastReceiver;
@@ -94,7 +92,6 @@ import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.android.controller.ServiceController;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowAlertDialog;
 import org.robolectric.shadows.ShadowLog;
 
 import java.lang.reflect.Field;
@@ -245,7 +242,6 @@ public class GenerateNotificationRunner {
    
    @Test
    public void shouldContainPayloadWhenOldSummaryNotificationIsOpened() {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       OneSignal.setNotificationOpenedHandler(new OneSignal.NotificationOpenedHandler() {
@@ -286,7 +282,6 @@ public class GenerateNotificationRunner {
    @Test
    public void shouldSetCorrectNumberOfButtonsOnSummaryNotification() throws Exception {
       // Setup - Init
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -309,7 +304,6 @@ public class GenerateNotificationRunner {
    @Test
    public void shouldCancelAllNotificationsPartOfAGroup() throws Exception {
       // Setup - Init
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -361,7 +355,6 @@ public class GenerateNotificationRunner {
     @Test
     @Config(sdk = Build.VERSION_CODES.LOLLIPOP)
     public void testNotifDismissAllOnGroupSummaryClickForAndroidUnderM() throws Exception {
-        OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
         OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
         OneSignal.setAppContext(blankActivity);
         threadAndTaskWait();
@@ -378,7 +371,6 @@ public class GenerateNotificationRunner {
     @Test
     @Config(sdk = Build.VERSION_CODES.LOLLIPOP)
     public void testNotifDismissRecentOnGroupSummaryClickForAndroidUnderM() throws Exception {
-        OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
         OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
         OneSignal.setAppContext(blankActivity);
         threadAndTaskWait();
@@ -395,7 +387,6 @@ public class GenerateNotificationRunner {
    @Test
    @Config(sdk = Build.VERSION_CODES.N)
    public void testNotifDismissAllOnGroupSummaryClick() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -412,7 +403,6 @@ public class GenerateNotificationRunner {
    @Test
    @Config(sdk = Build.VERSION_CODES.N)
    public void testNotifDismissRecentOnGroupSummaryClick() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -429,7 +419,6 @@ public class GenerateNotificationRunner {
    @Test
    @Config(sdk = Build.VERSION_CODES.N)
    public void testNotifDismissAllOnGrouplessSummaryClick() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -446,7 +435,6 @@ public class GenerateNotificationRunner {
    @Test
    @Config(sdk = Build.VERSION_CODES.N)
    public void testNotifDismissRecentOnGrouplessSummaryClick() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -487,7 +475,6 @@ public class GenerateNotificationRunner {
    @Test
    @Config(sdk = Build.VERSION_CODES.N)
    public void testGrouplessSummaryKeyReassignmentAtFourOrMoreNotification() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -558,7 +545,6 @@ public class GenerateNotificationRunner {
    @Test
    public void shouldCancelNotificationAndUpdateSummary() throws Exception {
       // Setup - Init
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -712,7 +698,6 @@ public class GenerateNotificationRunner {
    @Test
    public void shouldUpdateNormalNotificationDisplayWhenReplacingANotification() throws Exception {
       // Setup - init
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -977,70 +962,6 @@ public class GenerateNotificationRunner {
       SQLiteDatabase writableDb = OneSignalDbHelper.getInstance(RuntimeEnvironment.application).getWritableDatabase();
       NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, writableDb, "some_group", false);
    }
-   
-   @Test
-   public void shouldNotDisplaySummaryWhenDismissingAnInAppAlertIfOneDidntAlreadyExist() throws Exception {
-      // Setup - init
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.InAppAlert);
-      OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
-      OneSignal.setAppContext(blankActivity);
-      blankActivityController.resume();
-      threadAndTaskWait();
-   
-      // Setup1 - Display a notification with a group set
-      Bundle bundle = getBaseNotifBundle("UUID1");
-      bundle.putString("grp", "test1");
-      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
-   
-      // Test1 - Manually trigger a refresh on grouped notification.
-      SQLiteDatabase writableDb = OneSignalDbHelper.getInstance(RuntimeEnvironment.application).getWritableDatabase();
-      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, writableDb, "test1", false);
-      assertEquals(0, ShadowRoboNotificationManager.notifications.size());
-   
-   
-      // Setup2 - Display a 2nd notification with the same group key
-      bundle = getBaseNotifBundle("UUID2");
-      bundle.putString("grp", "test1");
-      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
-   
-      // Test2 - Manually trigger a refresh on grouped notification.
-      writableDb = OneSignalDbHelper.getInstance(RuntimeEnvironment.application).getWritableDatabase();
-      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, writableDb, "test1", false);
-      assertEquals(0, ShadowRoboNotificationManager.notifications.size());
-   }
-
-   @Test
-   public void shouldCorrectlyDisplaySummaryWithMixedInAppAlertsAndNotifications() throws Exception {
-      // Setup - init
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.InAppAlert);
-      OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
-      OneSignal.setAppContext(blankActivity);
-      blankActivityController.resume();
-      threadAndTaskWait();
-   
-      // Setup - Display a notification with a group set
-      Bundle bundle = getBaseNotifBundle("UUID1");
-      bundle.putString("grp", "test1");
-      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
-      
-      assertEquals(0, ShadowRoboNotificationManager.notifications.size());
-   
-      // Setup - Background app
-      blankActivityController.pause();
-      threadAndTaskWait();
-   
-      // Setup - Send 2 more notifications with the same group
-      bundle = getBaseNotifBundle("UUID2");
-      bundle.putString("grp", "test1");
-      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
-      bundle = getBaseNotifBundle("UUID3");
-      bundle.putString("grp", "test1");
-      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
-   
-      // Test - equals 3 - Should be 2 notifications + 1 summary.
-      //         Alert should stay as an in-app alert.
-      assertEquals(3, ShadowRoboNotificationManager.notifications.size());
-   }
 
    @Test
    @Config(shadows = {ShadowFCMBroadcastReceiver.class})
@@ -1087,23 +1008,6 @@ public class GenerateNotificationRunner {
 
       assertEquals(NotificationCompat.PRIORITY_LOW, ShadowRoboNotificationManager.getLastNotif().priority);
       assertEquals(0, ShadowRoboNotificationManager.getLastNotif().defaults);
-   }
-
-   // TODO: Fails because of no appId being set because manifest placeholders removed
-   @Test
-   public void shouldAddDefaultButtonToAlertDialog() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.InAppAlert);
-      OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
-      OneSignal.setAppContext(blankActivity);
-      blankActivityController.resume();
-      threadAndTaskWait();
-
-      Bundle bundle = getBaseNotifBundle();
-      NotificationBundleProcessor_ProcessFromFCMIntentService(blankActivity, bundle, null);
-
-      AlertDialog alert = ShadowAlertDialog.getLatestAlertDialog();
-      Button button = alert.getButton(AlertDialog.BUTTON_NEUTRAL);
-      assertEquals(button.getText(), "Ok");
    }
 
    @Test
@@ -1234,7 +1138,7 @@ public class GenerateNotificationRunner {
    private OSNotification lastNotificationReceived;
    @Test
    public void shouldStillFireReceivedHandlerWhenNotificationExtenderServiceIsUsed() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.None);
+      OneSignal.setNotificationDisplayOption(OneSignal.OSNotificationDisplay.SILENT);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       OneSignal.setNotificationWillShowInForegroundHandler(new OneSignal.NotificationWillShowInForegroundHandler() {
@@ -1254,7 +1158,6 @@ public class GenerateNotificationRunner {
 
    @Test
    public void shouldNotFailedNotificationExtenderServiceWhenAlertIsNull() throws Exception {
-      OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
