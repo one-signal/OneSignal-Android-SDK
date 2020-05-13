@@ -88,18 +88,16 @@ class GenerateNotification {
       contextResources = inContext.getResources();
    }
 
-   static void fromJsonPayload(NotificationGenerationJob notifJob) {
+   static void fromJsonPayload(OSNotificationGenerationJob notifJob) {
       setStatics(notifJob.context);
 
-      if (!notifJob.isRestoring && ActivityLifecycleHandler.curActivity != null) {
-         showNotificationAsAlert(notifJob.jsonPayload, ActivityLifecycleHandler.curActivity, notifJob.getAndroidId());
+      if (notifJob.displayOption.isSilent())
          return;
-      }
 
       showNotification(notifJob);
    }
 
-   static void updateSummaryNotification(NotificationGenerationJob notifJob) {
+   static void updateSummaryNotification(OSNotificationGenerationJob notifJob) {
       setStatics(notifJob.context);
       createSummaryNotification(notifJob, null);
    }
@@ -195,7 +193,7 @@ class GenerateNotification {
           .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
    }
    
-   private static OneSignalNotificationBuilder getBaseOneSignalNotificationBuilder(NotificationGenerationJob notifJob) {
+   private static OneSignalNotificationBuilder getBaseOneSignalNotificationBuilder(OSNotificationGenerationJob notifJob) {
       JSONObject fcmJson = notifJob.jsonPayload;
       OneSignalNotificationBuilder oneSignalNotificationBuilder = new OneSignalNotificationBuilder();
       
@@ -312,7 +310,7 @@ class GenerateNotification {
    }
 
    // Put the message into a notification and post it.
-   private static void showNotification(NotificationGenerationJob notifJob) {
+   private static void showNotification(OSNotificationGenerationJob notifJob) {
       int notificationId = notifJob.getAndroidId();
       JSONObject fcmJson = notifJob.jsonPayload;
       String group = fcmJson.optString("grp", null);
@@ -404,7 +402,7 @@ class GenerateNotification {
    }
 
    private static void applyNotificationExtender(
-           NotificationGenerationJob notifJob,
+           OSNotificationGenerationJob notifJob,
            NotificationCompat.Builder notifBuilder) {
       if (notifJob.overrideSettings == null || notifJob.overrideSettings.extender == null)
          return;
@@ -442,7 +440,7 @@ class GenerateNotification {
    
    // Removes custom sound set from the extender from non-summary notification before building it.
    //   This prevents the sound from playing twice or both the default sound + a custom one.
-   private static Notification createSingleNotificationBeforeSummaryBuilder(NotificationGenerationJob notifJob, NotificationCompat.Builder notifBuilder) {
+   private static Notification createSingleNotificationBeforeSummaryBuilder(OSNotificationGenerationJob notifJob, NotificationCompat.Builder notifBuilder) {
       // Includes Android 4.3 through 6.0.1. Android 7.1 handles this correctly without this.
       // Android 4.2 and older just post the summary only.
       boolean singleNotifWorkArounds = Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1 && Build.VERSION.SDK_INT < Build.VERSION_CODES.N
@@ -483,7 +481,7 @@ class GenerateNotification {
    }
 
    // This summary notification will be visible instead of the normal one on pre-Android 7.0 devices.
-   private static void createSummaryNotification(NotificationGenerationJob notifJob, OneSignalNotificationBuilder notifBuilder) {
+   private static void createSummaryNotification(OSNotificationGenerationJob notifJob, OneSignalNotificationBuilder notifBuilder) {
       boolean updateSummary = notifJob.isRestoring;
       JSONObject fcmJson = notifJob.jsonPayload;
 
@@ -687,7 +685,7 @@ class GenerateNotification {
    }
 
    @RequiresApi(api = Build.VERSION_CODES.M)
-   private static void createGrouplessSummaryNotification(NotificationGenerationJob notifJob, int grouplessNotifCount) {
+   private static void createGrouplessSummaryNotification(OSNotificationGenerationJob notifJob, int grouplessNotifCount) {
       JSONObject fcmJson = notifJob.jsonPayload;
 
       Notification summaryNotification;
