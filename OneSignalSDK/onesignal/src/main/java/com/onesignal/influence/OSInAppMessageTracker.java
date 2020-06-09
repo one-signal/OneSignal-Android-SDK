@@ -95,6 +95,7 @@ class OSInAppMessageTracker extends OSChannelTracker {
 
     @Override
     public void cacheState() {
-        dataRepository.cacheIAMInfluenceType(influenceType == null ? OSInfluenceType.UNATTRIBUTED : influenceType);
+        OSInfluenceType influenceTypeToCache = influenceType == null ? OSInfluenceType.UNATTRIBUTED : influenceType;
+        dataRepository.cacheIAMInfluenceType(influenceTypeToCache == OSInfluenceType.DIRECT ? OSInfluenceType.INDIRECT : influenceTypeToCache);
     }
 }
