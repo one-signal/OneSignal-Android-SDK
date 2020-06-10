@@ -73,6 +73,8 @@ public class OSOutcomeTableProvider {
             db.execSQL("COMMIT;");
         } catch (SQLiteException e) {
             e.printStackTrace();
+        } finally {
+            db.execSQL("COMMIT;");
         }
     }
 
@@ -103,9 +105,10 @@ public class OSOutcomeTableProvider {
             db.execSQL("UPDATE " + CachedUniqueOutcomeTable.TABLE_NAME +
                     " SET " + CachedUniqueOutcomeTable.COLUMN_CHANNEL_TYPE + " = \'" + OSInfluenceChannel.NOTIFICATION.toString() + "\';");
             db.execSQL("DROP TABLE " + oldCacheUniqueOutcomeTable + ";");
-            db.execSQL("COMMIT;");
         } catch (SQLiteException e) {
             e.printStackTrace();
+        } finally {
+            db.execSQL("COMMIT;");
         }
     }
 
