@@ -4133,6 +4133,76 @@ public class MainOneSignalClassRunner {
    }
 
    @Test
+   public void testOSDeviceHasEmailAddress() throws Exception {
+      String testEmail = "test@onesignal.com";
+
+      OneSignalInit();
+      threadAndTaskWait();
+
+      assertNull(OneSignal.getDevice().getEmailAddress());
+
+      OneSignal.setEmail(testEmail);
+      threadAndTaskWait();
+
+      assertEquals(testEmail, OneSignal.getDevice().getEmailAddress());
+   }
+
+   @Test
+   public void testOSDeviceHasEmailId() throws Exception {
+      String testEmail = "test@onesignal.com";
+
+      OneSignalInit();
+      threadAndTaskWait();
+
+      assertNull(OneSignal.getDevice().getEmailUserId());
+
+      OneSignal.setEmail(testEmail);
+      threadAndTaskWait();
+
+      assertNotNull(OneSignal.getDevice().getEmailUserId());
+   }
+
+   @Test
+   public void testOSDeviceHasUserId() throws Exception {
+      OneSignalInit();
+      threadAndTaskWait();
+
+      assertNotNull(OneSignal.getDevice().getUserId());
+   }
+
+   @Test
+   public void testOSDeviceHasPushToken() throws Exception {
+      OneSignalInit();
+      threadAndTaskWait();
+
+      assertNotNull(OneSignal.getDevice().getPushToken());
+   }
+
+   @Test
+   public void testOSDeviceNotificationPermission() throws Exception {
+      OneSignalInit();
+      threadAndTaskWait();
+
+      assertTrue(OneSignal.getDevice().isNotificationEnabled());
+   }
+
+   @Test
+   public void testOSDeviceUserSubscriptionSetting() throws Exception {
+      OneSignalInit();
+      threadAndTaskWait();
+
+      assertTrue(OneSignal.getDevice().isUserSubscribed());
+   }
+
+   @Test
+   public void testOSDeviceSubscribed() throws Exception {
+      OneSignalInit();
+      threadAndTaskWait();
+
+      assertTrue(OneSignal.getDevice().isSubscribed());
+   }
+
+   @Test
    public void testGetTagsQueuesCallbacks() throws Exception {
       final BlockingQueue<Boolean> queue = new ArrayBlockingQueue<>(2);
 
