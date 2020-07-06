@@ -50,7 +50,7 @@ import java.util.ArrayList;
 import java.util.Set;
 
 import static com.onesignal.GenerateNotification.BUNDLE_KEY_ACTION_ID;
-import static com.onesignal.NotificationExtenderService.EXTENDER_SERVICE_JOB_ID;
+import static com.onesignal.NotificationExtender.EXTENDER_SERVICE_JOB_ID;
 
 /** Processes the Bundle received from a push.
  * This class handles both processing bundles from a BroadcastReceiver or from a Service
@@ -69,7 +69,7 @@ class NotificationBundleProcessor {
    private static final String IAM_PREVIEW_KEY = "os_in_app_message_preview_id";
    static final String DEFAULT_ACTION = "__DEFAULT__";
 
-   static void ProcessFromFCMIntentService(Context context, BundleCompat bundle, NotificationExtenderService.OverrideSettings overrideSettings) {
+   static void processFromFCMIntentService(Context context, BundleCompat bundle, NotificationExtender.OverrideSettings overrideSettings) {
       OneSignal.setAppContext(context);
       try {
          String jsonStrPayload = bundle.getString("json_payload");
@@ -91,12 +91,12 @@ class NotificationBundleProcessor {
 
          if (bundle.containsKey("android_notif_id")) {
             if (overrideSettings == null)
-               overrideSettings = new NotificationExtenderService.OverrideSettings();
+               overrideSettings = new NotificationExtender.OverrideSettings();
             overrideSettings.androidNotificationId = bundle.getInt("android_notif_id");
          }
          
          notifJob.overrideSettings = overrideSettings;
-         ProcessJobForDisplay(notifJob);
+         processJobForDisplay(notifJob);
 
          // Delay to prevent CPU spikes.
          //    Normally more than one notification is restored at a time.
@@ -109,26 +109,29 @@ class NotificationBundleProcessor {
 
     /**
      * Recommended method to process notification before displaying
-     * Only use the {@link NotificationBundleProcessor#ProcessJobForDisplay(OSNotificationGenerationJob, boolean, boolean)}
+     * Only use the {@link NotificationBundleProcessor#processJobForDisplay(OSNotificationGenerationJob, boolean, boolean)}
      *     in the event where you want to mark a notification as opened or displayed different than the defaults
      */
-    static int ProcessJobForDisplay(OSNotificationGenerationJob notifJob) {
-        return ProcessJobForDisplay(notifJob, false, true);
+    static int processJobForDisplay(OSNotificationGenerationJob notifJob) {
+        return processJobForDisplay(notifJob, false, true);
     }
 
-    static int ProcessJobForDisplay(OSNotificationGenerationJob notifJob, boolean opened, boolean displayed) {
+    static int processJobForDisplay(OSNotificationGenerationJob notifJob, boolean opened, boolean displayed) {
         processCollapseKey(notifJob);
 
+        int androidNotifId = notifJob.getAndroidIdWithoutCreate();
         boolean doDisplay = shouldDisplayNotif(notifJob);
-        if (doDisplay)
-            OneSignal.fireNotificationWillShowInForegroundHandlers(notifJob);
+        if (doDisplay) {
+           androidNotifId = notifJob.getAndroidId();
+           OneSignal.fireNotificationWillShowInForegroundHandlers(notifJob);
+        }
 
         if (!notifJob.isRestoring && !notifJob.isIamPreview) {
             processNotification(notifJob, opened);
             OneSignal.handleNotificationReceived(notifJob, displayed);
         }
 
-        return notifJob.getAndroidIdWithoutCreate();
+        return androidNotifId;
     }
 
    private static boolean shouldDisplayNotif(OSNotificationGenerationJob notifJob) {
@@ -150,7 +153,7 @@ class NotificationBundleProcessor {
    private static OSNotificationGenerationJob saveAndProcessNotification(Context context, Bundle bundle, boolean opened, int notificationId) {
       OSNotificationGenerationJob notifJob = new OSNotificationGenerationJob(context);
       notifJob.jsonPayload = bundleAsJSONObject(bundle);
-      notifJob.overrideSettings = new NotificationExtenderService.OverrideSettings();
+      notifJob.overrideSettings = new NotificationExtender.OverrideSettings();
       notifJob.overrideSettings.androidNotificationId = notificationId;
 
       processNotification(notifJob, opened);
@@ -498,16 +501,16 @@ class NotificationBundleProcessor {
       // Create new notifJob to be processed for display
       final OSNotificationGenerationJob notifJob = new OSNotificationGenerationJob(context);
       notifJob.jsonPayload = bundleAsJSONObject(bundle);
-      notifJob.overrideSettings = new NotificationExtenderService.OverrideSettings();
+      notifJob.overrideSettings = new NotificationExtender.OverrideSettings();
 
       // Process and save as a opened notification to prevent duplicates.
        String alert = bundle.getString("alert");
        if (!shouldDisplay(alert)) {
            notifJob.overrideSettings.androidNotificationId = -1;
-           NotificationBundleProcessor.ProcessJobForDisplay(notifJob, true, false);
+           NotificationBundleProcessor.processJobForDisplay(notifJob, true, false);
        }
        else {
-           NotificationBundleProcessor.ProcessJobForDisplay(notifJob);
+           NotificationBundleProcessor.processJobForDisplay(notifJob);
        }
 
       return result;
@@ -532,7 +535,7 @@ class NotificationBundleProcessor {
 
    // NotificationExtenderService still makes additional checks such as notValidOrDuplicated
    private static boolean startExtenderService(Context context, Bundle bundle, ProcessedBundleResult result) {
-      Intent intent = NotificationExtenderService.getIntent(context);
+      Intent intent = NotificationExtender.getIntent(context);
       if (intent == null)
          return false;
 
@@ -542,7 +545,7 @@ class NotificationBundleProcessor {
       boolean isHighPriority = Integer.parseInt(bundle.getString("pri", "0")) > 9;
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
-         NotificationExtenderService.enqueueWork(
+         NotificationExtender.enqueueWork(
             context,
             intent.getComponent(),
             EXTENDER_SERVICE_JOB_ID,

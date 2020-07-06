@@ -704,9 +704,9 @@ public class OneSignal {
          return;
       }
 
-      NotificationExtenderService.setupNotificationExtensionServiceClass();
+      NotificationExtender.setupNotificationExtensionServiceClass();
 
-       handleActivityLifecycleHandler(context);
+      handleActivityLifecycleHandler(context);
 
       OneSignalStateSynchronizer.initUserState();
 
@@ -2136,9 +2136,6 @@ public class OneSignal {
     * <br/><br/>
     * @see OneSignal.ExtNotificationWillShowInForegroundHandler
     * @see OneSignal.AppNotificationWillShowInForegroundHandler
-    * <br/><br/>
-    * TODO: Enqueue this method for the extNotificationWillShowInForegroundHandler/appNotificationWillShowInForegroundHandler
-    *    with a WorkManager Worker eventually
     */
    static void fireNotificationWillShowInForegroundHandlers(OSNotificationGenerationJob notifJob) {
       // No ExtNotificationWillShowInForegroundHandler or AppNotificationWillShowInForegroundHandler was setup, show the notification
@@ -2149,11 +2146,13 @@ public class OneSignal {
 
       // No ExtNotificationWillShowInForegroundHandler was setup, use the AppNotificationWillShowInForegroundHandler to start
       if (extNotificationWillShowInForegroundHandler == null) {
-         appNotificationWillShowInForegroundHandler.notificationWillShowInForeground(notifJob.toAppNotificationGenerationJob());
+         appNotificationWillShowInForegroundHandler.notificationWillShowInForeground(
+                 notifJob.toAppNotificationGenerationJob());
          return;
       }
 
-      extNotificationWillShowInForegroundHandler.notificationWillShowInForeground(notifJob.toExtNotificationGenerationJob());
+      extNotificationWillShowInForegroundHandler.notificationWillShowInForeground(
+              notifJob.toExtNotificationGenerationJob());
    }
 
    // Called when opening a notification
