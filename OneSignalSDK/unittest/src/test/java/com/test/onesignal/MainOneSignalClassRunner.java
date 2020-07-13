@@ -257,7 +257,6 @@ public class MainOneSignalClassRunner {
 
       ShadowGMSLocationController.reset();
 
-      TestHelpers.setupTestWorkManager(blankActivity);
       TestHelpers.beforeTestInitAndCleanup();
    }
 
@@ -281,6 +280,8 @@ public class MainOneSignalClassRunner {
       trackerFactory = new OSTrackerFactory(new MockOSSharedPreferences(), new MockOSLog());
       sessionManager = new MockSessionManager(OneSignal_getSessionListener(), trackerFactory, new MockOSLog());
       dbHelper = new MockOneSignalDBHelper(RuntimeEnvironment.application);
+
+      TestHelpers.setupTestWorkManager(blankActivity);
 
       cleanUp();
    }
