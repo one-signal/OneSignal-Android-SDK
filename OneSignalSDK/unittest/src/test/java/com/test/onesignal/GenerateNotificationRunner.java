@@ -96,6 +96,7 @@ import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.android.controller.ServiceController;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowAlertDialog;
 import org.robolectric.shadows.ShadowLog;
 
@@ -116,6 +117,7 @@ import static com.onesignal.OneSignalPackagePrivateHelper.NotificationBundleProc
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationOpenedProcessor_processFromContext;
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved;
 import static com.onesignal.OneSignalPackagePrivateHelper.createInternalPayloadBundle;
+import static com.onesignal.ShadowOneSignalRestClient.setRemoteParamsGetHtmlResponse;
 import static com.onesignal.ShadowRoboNotificationManager.getNotificationsInGroup;
 import static com.test.onesignal.RestClientAsserts.assertReportReceivedAtIndex;
 import static com.test.onesignal.RestClientAsserts.assertRestCalls;
@@ -147,7 +149,8 @@ import static org.robolectric.Shadows.shadowOf;
 )
 @RunWith(RobolectricTestRunner.class)
 public class GenerateNotificationRunner {
-   
+
+   private static final String ONESIGNAL_APP_ID = "b4f7f966-d8cc-11e4-bed1-df8f05be55ba";
    private static final String notifMessage = "Robo test message";
 
    private Activity blankActivity;
@@ -178,6 +181,9 @@ public class GenerateNotificationRunner {
       NotificationManager notificationManager = OneSignalNotificationManagerPackageHelper.getNotificationManager(blankActivity);
       notificationManager.cancelAll();
       NotificationRestorer.restored = false;
+
+      // Set remote_params GET response
+      setRemoteParamsGetHtmlResponse();
    }
 
    @AfterClass
@@ -900,7 +906,19 @@ public class GenerateNotificationRunner {
    }
 
    @Test
-   public void shouldGenerate2BasicGroupNotifications() {
+   public void shouldGenerate2BasicGroupNotifications() throws Exception {
+      ShadowOSUtils.hasAllRecommendedFCMLibraries(true);
+      OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE);
+      // First init run for appId to be saved
+      // At least OneSignal was init once for user to be subscribed
+      // If this doesn't' happen, notifications will not arrive
+      OneSignal.setAppId(ONESIGNAL_APP_ID);
+      OneSignal.setAppContext(blankActivity);
+      threadAndTaskWait();
+      fastColdRestartApp();
+      // We only care about request post first init
+      ShadowOneSignalRestClient.resetStatics();
+
       // Make sure the notification got posted and the content is correct.
       Bundle bundle = getBaseNotifBundle();
       bundle.putString("grp", "test1");

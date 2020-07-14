@@ -27,21 +27,29 @@
 
 package com.test.onesignal;
 
+import android.annotation.SuppressLint;
+import android.app.Activity;
+
 import com.onesignal.MockHttpURLConnection;
 import com.onesignal.OneSignal;
 import com.onesignal.OneSignalPackagePrivateHelper.OneSignalRestClient;
 import com.onesignal.ShadowOneSignalRestClientWithMockConnection;
 import com.onesignal.StaticResetHelper;
+import com.onesignal.example.BlankActivity;
 
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLog;
 
+import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_savePrivacyConsentRequired;
+import static com.onesignal.ShadowOneSignalRestClient.setRemoteParamsGetHtmlResponse;
 import static com.test.onesignal.TestHelpers.threadAndTaskWait;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
@@ -56,7 +64,11 @@ import static junit.framework.Assert.assertTrue;
 )
 @RunWith(RobolectricTestRunner.class)
 public class RESTClientRunner {
-   
+
+   @SuppressLint("StaticFieldLeak")
+   private static Activity blankActivity;
+   private static ActivityController<BlankActivity> blankActivityController;
+
    @BeforeClass // Runs only once, before any tests
    public static void setUpClass() throws Exception {
       ShadowLog.stream = System.out;
@@ -67,7 +79,10 @@ public class RESTClientRunner {
    @Before // Before each test
    public void beforeEachTest() throws Exception {
       firstResponse = secondResponse = null;
+      blankActivityController = Robolectric.buildActivity(BlankActivity.class).create();
+      blankActivity = blankActivityController.get();
       TestHelpers.beforeTestInitAndCleanup();
+      OneSignal.setAppContext(blankActivity);
    }
 
    @AfterClass
@@ -99,6 +114,8 @@ public class RESTClientRunner {
 
    @Test
    public void SDKHeaderIsIncludedInPostCalls() throws Exception {
+      OneSignal_savePrivacyConsentRequired(false);
+
       OneSignalRestClient.postSync("URL", null,null);
       threadAndTaskWait();
 
@@ -107,6 +124,8 @@ public class RESTClientRunner {
 
    @Test
    public void SDKHeaderIsIncludedInPutCalls() throws Exception {
+      OneSignal_savePrivacyConsentRequired(false);
+
       OneSignalRestClient.putSync("URL", null,null);
       threadAndTaskWait();
 
@@ -192,6 +211,8 @@ public class RESTClientRunner {
 
    @Test
    public void testApiCall400Response() throws Exception {
+      OneSignal_savePrivacyConsentRequired(false);
+
       final String newMockResponse = "{\"errors\":[\"test response\"]}";
       final int statusCode = 400;
 
@@ -223,6 +244,8 @@ public class RESTClientRunner {
 
    @Test
    public void testApiCall400EmptyResponse() throws Exception {
+      OneSignal_savePrivacyConsentRequired(false);
+
       final String newMockResponse = "";
       final int statusCode = 400;
 

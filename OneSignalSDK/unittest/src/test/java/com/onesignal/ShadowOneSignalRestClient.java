@@ -93,7 +93,7 @@ public class ShadowOneSignalRestClient {
    private static String remoteParamsGetHtmlResponse = null;
    private static final String REMOTE_PARAMS = " {" +
            "\"awl_list\":{}," +
-           "\"android_sender_id\":\"1087181915257\"," +
+           "\"android_sender_id\":\"87654321\"," +
            "\"chnl_lst\":[]," +
            "\"enterp\":false," +
            "\"outcomes\":{" +
@@ -107,7 +107,7 @@ public class ShadowOneSignalRestClient {
            "\"enabled\":true" +
            "}" +
            "}," +
-           "\"receive_receipts_enable\":true," +
+           "\"receive_receipts_enable\":false," +
            "\"unsubscribe_on_notifications_disabled\":true," +
            "\"disable_gms_missing_prompt\":true," +
            "\"location_shared\":true," +
@@ -204,7 +204,11 @@ public class ShadowOneSignalRestClient {
       remoteParamsGetHtmlResponse = remoteParams.toString();
    }
 
-   public static void setRemoteParamsGetHtmlResponse() throws JSONException {
+   public static void setRemoteParamsGetHtmlResponse(String response) {
+      remoteParamsGetHtmlResponse = response;
+   }
+
+   public static void setRemoteParamsGetHtmlResponse() {
       remoteParamsGetHtmlResponse = REMOTE_PARAMS;
    }
 

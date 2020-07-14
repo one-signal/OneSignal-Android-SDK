@@ -107,6 +107,7 @@ class WebViewManager extends ActivityLifecycleHandler.ActivityAvailableListener 
         /* IMPORTANT
          * Loop the setup for in app message until curActivity is not null */
         Looper.prepare();
+
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {

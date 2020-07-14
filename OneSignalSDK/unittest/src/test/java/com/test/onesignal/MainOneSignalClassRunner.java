@@ -132,6 +132,7 @@ import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_getSessionLi
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setRequiresUserPrivacyConsent;
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setSessionManager;
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setTrackerFactory;
+import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_taskQueueWaitingForInit;
 import static com.onesignal.OneSignalPackagePrivateHelper.bundleAsJSONObject;
 import static com.onesignal.ShadowOneSignalRestClient.REST_METHOD;
 import static com.onesignal.ShadowOneSignalRestClient.setRemoteParamsGetHtmlResponse;
@@ -814,7 +815,7 @@ public class MainOneSignalClassRunner {
       blankActivityController.resume();
       threadAndTaskWait();
       assertTrue(ShadowOneSignalRestClient.lastUrl.matches("players/.*/on_session"));
-      assertEquals("{\"app_id\":\"b2f7f966-d8cc-11e4-bed1-df8f05be55ba\"}", ShadowOneSignalRestClient.lastPost.toString());
+      assertEquals("{\"app_id\":\"b4f7f966-d8cc-11e4-bed1-df8f05be55ba\"}", ShadowOneSignalRestClient.lastPost.toString());
    }
 
    @Test
@@ -866,7 +867,7 @@ public class MainOneSignalClassRunner {
       assertEquals(4, ShadowOneSignalRestClient.networkCallCount);
       GetIdsAvailable();
       assertEquals("players/" + callBackUseId, ShadowOneSignalRestClient.lastUrl);
-      assertEquals("{\"carrier\":\"test2\",\"app_id\":\"b2f7f966-d8cc-11e4-bed1-df8f05be55ba\"}", ShadowOneSignalRestClient.lastPost.toString());
+      assertEquals("{\"carrier\":\"test2\",\"app_id\":\"b4f7f966-d8cc-11e4-bed1-df8f05be55ba\"}", ShadowOneSignalRestClient.lastPost.toString());
    }
 
    @Test
@@ -941,6 +942,7 @@ public class MainOneSignalClassRunner {
    }
 
    @Test
+   @Config(shadows = {ShadowOneSignal.class})
    public void testOpenFromNotificationWhenAppIsDead() throws Exception {
       OneSignal.setAppContext(blankActivity);
       OneSignal.handleNotificationOpen(blankActivity, new JSONArray("[{ \"alert\": \"Robo test message\", \"custom\": { \"i\": \"UUID\" } }]"), false, ONESIGNAL_NOTIFICATION_ID);
@@ -988,12 +990,11 @@ public class MainOneSignalClassRunner {
       JSONObject androidParams = testHelper.createBasicChannelListPayload();
       androidParams.put("awl_list", new JSONObject());
       // Get call will not return a Google project number if it hasn't been entered on the OneSignal dashboard.
-      ShadowOneSignalRestClient.setNextSuccessfulJSONResponse(androidParams);
+      ShadowOneSignalRestClient.setRemoteParamsGetHtmlResponse(androidParams.toString());
 
       // Don't fire the mock callback, it will be done from the real class.
       ShadowPushRegistratorFCM.skipComplete = true;
 
-//      OneSignal.init(blankActivity, null, ONESIGNAL_APP_ID);
       OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -1043,10 +1044,16 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void testOpeningLauncherActivity() throws Exception {
-      AddLauncherIntentFilter();
+      // First init run for appId to be saved
+      // At least OneSignal was init once for user to be subscribed
+      // If this doesn't' happen, notifications will not arrive
+      OneSignalInit();
+      fastColdRestartApp();
 
+      AddLauncherIntentFilter();
       // From app launching normally
       assertNotNull(shadowOf(blankActivity).getNextStartedActivity());
+      // Will get appId saved
       OneSignal.setAppContext(blankActivity);
       OneSignal.handleNotificationOpen(blankActivity, new JSONArray("[{ \"alert\": \"Test Msg\", \"custom\": { \"i\": \"UUID\" } }]"), false, ONESIGNAL_NOTIFICATION_ID);
 
@@ -1056,12 +1063,17 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void testOpeningLaunchUrl() throws Exception {
+      // First init run for appId to be saved
+      // At least OneSignal was init once for user to be subscribed
+      // If this doesn't' happen, notifications will not arrive
+      OneSignalInit();
+      fastColdRestartApp();
+
       OneSignal.setAppContext(blankActivity);
       // Removes app launch
       shadowOf(blankActivity).getNextStartedActivity();
 
       // No OneSignal init here to test case where it is located in an Activity.
-
       OneSignal.handleNotificationOpen(blankActivity, new JSONArray("[{ \"alert\": \"Test Msg\", \"custom\": { \"i\": \"UUID\", \"u\": \"http://google.com\" } }]"), false, ONESIGNAL_NOTIFICATION_ID);
       Intent intent = shadowOf(blankActivity).getNextStartedActivity();
       assertEquals("android.intent.action.VIEW", intent.getAction());
@@ -1165,14 +1177,15 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
       assertEquals(0, ShadowBadgeCountUpdater.lastCount);
 
-      // Resume should have no effect on badges.
+      // Resume should have effect on badges. Notifications will be restored
       ShadowBadgeCountUpdater.lastCount = -1;
       blankActivityController.resume();
       threadAndTaskWait();
       assertEquals(-1, ShadowBadgeCountUpdater.lastCount);
 
-      // Nor an app restart
       StaticResetHelper.restSetStaticFields();
+      // Restart should have no effect on badges
+      ShadowBadgeCountUpdater.lastCount = -1;
       OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(ApplicationProvider.getApplicationContext());
       threadAndTaskWait();
@@ -1762,7 +1775,7 @@ public class MainOneSignalClassRunner {
       ShadowOneSignalRestClient.Request logoutEmailPost = ShadowOneSignalRestClient.requests.get(4);
       assertEquals("players/a2f7f967-e8cc-11e4-bed1-118f05be4511/email_logout", logoutEmailPost.url);
       assertEquals("b007f967-98cc-11e4-bed1-118f05be4522", logoutEmailPost.payload.get("parent_player_id"));
-      assertEquals("b2f7f966-d8cc-11e4-bed1-df8f05be55ba", logoutEmailPost.payload.get("app_id"));
+      assertEquals("b4f7f966-d8cc-11e4-bed1-df8f05be55ba", logoutEmailPost.payload.get("app_id"));
    }
 
    @Test
@@ -1953,15 +1966,14 @@ public class MainOneSignalClassRunner {
    // Tests to make sure that the onFailure callback works
    @Test
    public void shouldFailToSendTagsWithResponse() throws Exception {
-      // Context is needed for privacy consent
-      OneSignal.setAppContext(blankActivity);
-      OneSignal_setRequiresUserPrivacyConsent(false);
-
       TestChangeTagsUpdateHandler handler = new TestChangeTagsUpdateHandler();
 
-      // should fail because there is no OneSignal player ID
+      // Should fail because there is no OneSignal player ID
       OneSignal.sendTags(new JSONObject("{\"test\" : \"value\"}"), handler);
+      threadAndTaskWait();
 
+      ShadowOneSignalRestClient.pushUserId = null;
+      OneSignalInit();
       threadAndTaskWait();
 
       assertTrue(handler.getFailed());
@@ -2023,7 +2035,7 @@ public class MainOneSignalClassRunner {
       assertEquals(2, ShadowOneSignalRestClient.requests.size());
       assertEquals(ShadowOneSignalRestClient.REST_METHOD.POST, createPlayer.method);
       assertEquals("players", createPlayer.url);
-      assertEquals("b2f7f966-d8cc-11e4-bed1-df8f05be55ba", createPlayer.payload.get("app_id"));
+      assertEquals("b4f7f966-d8cc-11e4-bed1-df8f05be55ba", createPlayer.payload.get("app_id"));
       assertEquals(1, createPlayer.payload.get("device_type"));
    }
 
@@ -2068,8 +2080,7 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void testOneSignalMethodsBeforeDuringInitMultipleThreads() throws Exception {
-
-      for(int a = 0; a < 10; a++) {
+      for (int a = 0; a < 10; a++) {
          List<Thread> threadList = new ArrayList<>(30);
          for (int i = 0; i < 30; i++) {
             Thread lastThread = newSendTagTestThread(Thread.currentThread(), i);
@@ -2078,14 +2089,14 @@ public class MainOneSignalClassRunner {
             assertFalse(failedCurModTest);
          }
 
-         for(Thread thread : threadList)
+         for (Thread thread : threadList)
             thread.join();
          assertFalse(failedCurModTest);
       }
 
       OneSignalInit();
 
-      for(int a = 0; a < 10; a++) {
+      for (int a = 0; a < 10; a++) {
          List<Thread> threadList = new ArrayList<>(30);
          for (int i = 0; i < 30; i++) {
             Thread lastThread = newSendTagSetZeroThread(Thread.currentThread(), i);
@@ -2094,7 +2105,7 @@ public class MainOneSignalClassRunner {
             assertFalse(failedCurModTest);
          }
 
-         for(Thread thread : threadList)
+         for (Thread thread : threadList)
             thread.join();
          assertFalse(failedCurModTest);
       }
@@ -2103,12 +2114,11 @@ public class MainOneSignalClassRunner {
 
       JSONObject tags = ShadowOneSignalRestClient.lastPost.getJSONObject("tags");
       //assert the tags...which should all be 0
-      for(int a = 0; a < 10; a++) {
+      for (int a = 0; a < 10; a++) {
          for (int i = 0; i < 30; i++) {
-            assertEquals("0",tags.getString("key"+i));
+            assertEquals("0", tags.getString("key" + i));
          }
       }
-
    }
 
    private static Thread newSendTagSetZeroThread(final Thread mainThread, final int id) {
@@ -2180,7 +2190,7 @@ public class MainOneSignalClassRunner {
       // ----- END QUEUE ------
 
       //there should be 503 pending operations in the queue
-      assertEquals(503, OneSignal.taskQueueWaitingForInit.size());
+      assertEquals(503, OneSignal_taskQueueWaitingForInit().size());
 
       OneSignalInit(); //starts the pending tasks executor
 
@@ -2216,7 +2226,7 @@ public class MainOneSignalClassRunner {
       });
 
       //after init, the queue should be empty...
-      assertEquals(0, OneSignal.taskQueueWaitingForInit.size());
+      assertEquals(0, OneSignal_taskQueueWaitingForInit().size());
 
       threadAndTaskWait();
 
@@ -2262,7 +2272,7 @@ public class MainOneSignalClassRunner {
          OneSignal.sendTag("a" + a, String.valueOf(a));
 
       //the queue should be empty since we already initialized the SDK
-      assertEquals(0, OneSignal.taskQueueWaitingForInit.size());
+      assertEquals(0, OneSignal_taskQueueWaitingForInit().size());
 
       threadAndTaskWait();
 
@@ -2408,7 +2418,8 @@ public class MainOneSignalClassRunner {
       Robolectric.buildService(SyncService.class).startCommand(0, 0);
       threadAndTaskWait();
       assertEquals("value", ShadowOneSignalRestClient.lastPost.getJSONObject("tags").getString("key"));
-      assertEquals(3, ShadowOneSignalRestClient.networkCallCount);
+      // Remote params are called before players call due to setAppContext call inside SyncService
+      assertEquals(4, ShadowOneSignalRestClient.networkCallCount);
 
       // Test starting app
       OneSignalInit();
@@ -2725,8 +2736,6 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void testMethodCalls_withSetAppContextAndSetAppId() throws Exception {
-      OneSignal_setRequiresUserPrivacyConsent(false);
-
       GetTags();
       OneSignal.sendTag("key", "value");
       OneSignal.sendTags("{\"key\": \"value\"}");
@@ -3772,7 +3781,6 @@ public class MainOneSignalClassRunner {
       ShadowRoboNotificationManager.notifications.clear();
       OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity.getApplicationContext());
-//      OneSignal_setGoogleProjectNumber("87654321");
       threadAndTaskWait();
 
       // Create 2 notifications
@@ -3844,7 +3852,7 @@ public class MainOneSignalClassRunner {
       threadAndTaskWait();
 
       assertTrue(ShadowCustomTabsClient.bindCustomTabsServiceCalled);
-      assertTrue(ShadowCustomTabsSession.lastURL.toString().contains("https://onesignal.com/android_frame.html?app_id=b2f7f966-d8cc-11e4-bed1-df8f05be55ba&user_id=a2f7f967-e8cc-11e4-bed1-118f05be4511&ad_id=11111111-2222-3333-4444-555555555555&cbs_id="));
+      assertTrue(ShadowCustomTabsSession.lastURL.toString().contains("https://onesignal.com/android_frame.html?app_id=b4f7f966-d8cc-11e4-bed1-df8f05be55ba&user_id=a2f7f967-e8cc-11e4-bed1-118f05be4511&ad_id=11111111-2222-3333-4444-555555555555&cbs_id="));
    }
 
    @Test
@@ -3879,8 +3887,9 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void shouldFirePermissionObserverWhenUserDisablesNotifications() throws Exception {
-      OneSignal.unsubscribeWhenNotificationsAreDisabled(false);
-
+      ShadowOneSignalRestClient.setRemoteParamsGetHtmlResponse(new JSONObject()
+              .put("unsubscribe_on_notifications_disabled", false)
+      );
       OneSignalInit();
       threadAndTaskWait();
 
@@ -3913,7 +3922,9 @@ public class MainOneSignalClassRunner {
    @Test
    public void shouldSetNotificationTypesToZeroWhenUnsubscribeWhenNotificationsAreDisabledIsEnabled() throws Exception {
       ShadowNotificationManagerCompat.enabled = false;
-      OneSignal.unsubscribeWhenNotificationsAreDisabled(true);
+      ShadowOneSignalRestClient.setRemoteParamsGetHtmlResponse(new JSONObject()
+              .put("unsubscribe_on_notifications_disabled", true)
+      );
       OneSignal.setAppId(ONESIGNAL_APP_ID);
       OneSignal.setAppContext(blankActivity);
       threadAndTaskWait();
@@ -3969,7 +3980,9 @@ public class MainOneSignalClassRunner {
 
    @Test
    public void shouldFireSubscriptionObserverWhenUserDisablesNotifications() throws Exception {
-      OneSignal.unsubscribeWhenNotificationsAreDisabled(false);
+      ShadowOneSignalRestClient.setRemoteParamsGetHtmlResponse(new JSONObject()
+              .put("unsubscribe_on_notifications_disabled", false)
+      );
       OneSignalInit();
       threadAndTaskWait();
 
@@ -4167,7 +4180,7 @@ public class MainOneSignalClassRunner {
       OneSignalPackagePrivateHelper.OneSignal_sendPurchases(purchases, false, null);
       threadAndTaskWait();
 
-      String expectedPayload = "{\"app_id\":\"b2f7f966-d8cc-11e4-bed1-df8f05be55ba\",\"purchases\":[{\"sku\":\"com.test.sku\"}]}";
+      String expectedPayload = "{\"app_id\":\"b4f7f966-d8cc-11e4-bed1-df8f05be55ba\",\"purchases\":[{\"sku\":\"com.test.sku\"}]}";
       ShadowOneSignalRestClient.Request pushPurchase = ShadowOneSignalRestClient.requests.get(4);
       assertEquals("players/a2f7f967-e8cc-11e4-bed1-118f05be4511/on_purchase", pushPurchase.url);
       assertEquals(expectedPayload, pushPurchase.payload.toString());
@@ -4300,7 +4313,6 @@ public class MainOneSignalClassRunner {
    @Test
    public void doesNotSendSameExternalId() throws Exception {
       String testExternalId = "test_ext_id";
-
       OneSignal.setExternalUserId(testExternalId);
 
       OneSignalInit();
