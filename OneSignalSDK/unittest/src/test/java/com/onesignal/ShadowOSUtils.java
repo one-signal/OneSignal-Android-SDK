@@ -2,6 +2,7 @@ package com.onesignal;
 
 import android.content.Context;
 
+import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
 @Implements(OSUtils.class)
@@ -86,6 +87,11 @@ public class ShadowOSUtils {
       hasHMSAGConnectLibrary = false;
       isHMSCoreInstalledAndEnabled = false;
 
+   }
+
+   @Implementation
+   public static boolean isThreadRunningOnMainThread() {
+      return false;
    }
 
    public String getCarrierName() {

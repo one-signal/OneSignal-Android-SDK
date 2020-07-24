@@ -29,6 +29,7 @@ package com.onesignal;
 
 import android.net.TrafficStats;
 import android.os.Build;
+import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -103,7 +104,10 @@ class OneSignalRestClient {
       // If not a GET request, check if the user provided privacy consent if the application is set to require user privacy consent
       if (method != null && OneSignal.shouldLogUserPrivacyConsentErrorMessageForMethodName(null))
          return;
-   
+
+      if (OSUtils.isThreadRunningOnMainThread())
+         throw new OneSignalNetworkCallException("Method: " + method + " was called from the Main Thread!");
+
       final Thread[] callbackThread = new Thread[1];
       Thread connectionThread = new Thread(new Runnable() {
          public void run() {
@@ -288,5 +292,11 @@ class OneSignalRestClient {
 
    private static HttpURLConnection newHttpURLConnection(String url) throws IOException {
       return (HttpURLConnection)new URL(BASE_URL + url).openConnection();
+   }
+
+   private static class OneSignalNetworkCallException extends RuntimeException {
+      public OneSignalNetworkCallException(String message) {
+         super(message);
+      }
    }
 }

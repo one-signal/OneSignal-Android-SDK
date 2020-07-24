@@ -30,6 +30,7 @@ package com.test.onesignal;
 import com.onesignal.MockHttpURLConnection;
 import com.onesignal.OneSignal;
 import com.onesignal.OneSignalPackagePrivateHelper.OneSignalRestClient;
+import com.onesignal.ShadowOSUtils;
 import com.onesignal.ShadowOneSignalRestClientWithMockConnection;
 import com.onesignal.StaticResetHelper;
 
@@ -50,7 +51,8 @@ import static junit.framework.Assert.assertTrue;
 @Config(packageName = "com.onesignal.example",
         instrumentedPackages = { "com.onesignal" },
         shadows = {
-            ShadowOneSignalRestClientWithMockConnection.class
+            ShadowOneSignalRestClientWithMockConnection.class,
+            ShadowOSUtils.class
         },
         sdk = 26
 )
