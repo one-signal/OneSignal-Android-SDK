@@ -57,7 +57,9 @@ import static junit.framework.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
 public class RESTClientRunner {
-   
+
+   private static final String OS_REST_CLIENT = "OS_REST_CLIENT";
+
    @BeforeClass // Runs only once, before any tests
    public static void setUpClass() throws Exception {
       ShadowLog.stream = System.out;
@@ -82,7 +84,12 @@ public class RESTClientRunner {
          mockThreadHang = true;
       }};
 
-      OneSignalRestClient.getSync("URL", null,"");
+      new Thread(new Runnable() {
+         @Override
+         public void run() {
+            OneSignalRestClient.getSync("URL", null,"");
+         }
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
 
       assertTrue(ShadowOneSignalRestClientWithMockConnection.lastConnection.getDidInterruptMockHang());
@@ -92,7 +99,12 @@ public class RESTClientRunner {
 
    @Test
    public void SDKHeaderIsIncludedInGetCalls() throws Exception {
-      OneSignalRestClient.getSync("URL", null, null);
+      new Thread(new Runnable() {
+         @Override
+         public void run() {
+            OneSignalRestClient.getSync("URL", null, null);
+         }
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
 
       assertEquals(SDK_VERSION_HTTP_HEADER, getLastHTTPHeaderProp("SDK-Version"));
@@ -100,7 +112,12 @@ public class RESTClientRunner {
 
    @Test
    public void SDKHeaderIsIncludedInPostCalls() throws Exception {
-      OneSignalRestClient.postSync("URL", null,null);
+      new Thread(new Runnable() {
+         @Override
+         public void run() {
+            OneSignalRestClient.postSync("URL", null,null);
+         }
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
 
       assertEquals(SDK_VERSION_HTTP_HEADER, getLastHTTPHeaderProp("SDK-Version"));
@@ -108,7 +125,12 @@ public class RESTClientRunner {
 
    @Test
    public void SDKHeaderIsIncludedInPutCalls() throws Exception {
-      OneSignalRestClient.putSync("URL", null,null);
+      new Thread(new Runnable() {
+         @Override
+         public void run() {
+            OneSignalRestClient.putSync("URL", null,null);
+         }
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
 
       assertEquals(SDK_VERSION_HTTP_HEADER, getLastHTTPHeaderProp("SDK-Version"));
@@ -131,12 +153,18 @@ public class RESTClientRunner {
          responseBody = "{\"key1\": \"value1\"}";
          mockProps.put("etag", MOCK_ETAG_VALUE);
       }};
-      OneSignalRestClient.getSync("URL", new OneSignalRestClient.ResponseHandler() {
+
+      new Thread(new Runnable() {
          @Override
-         public void onSuccess(String response) {
-            firstResponse = response;
+         public void run() {
+            OneSignalRestClient.getSync("URL", new OneSignalRestClient.ResponseHandler() {
+               @Override
+               public void onSuccess(String response) {
+                  firstResponse = response;
+               }
+            }, MOCK_CACHE_KEY);
          }
-      }, MOCK_CACHE_KEY);
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
       Thread.sleep(200);
 
@@ -145,12 +173,17 @@ public class RESTClientRunner {
          status = 304;
       }};
 
-      OneSignalRestClient.getSync("URL", new OneSignalRestClient.ResponseHandler() {
+      new Thread(new Runnable() {
          @Override
-         public void onSuccess(String response) {
-            secondResponse = response;
+         public void run() {
+            OneSignalRestClient.getSync("URL", new OneSignalRestClient.ResponseHandler() {
+               @Override
+               public void onSuccess(String response) {
+                  secondResponse = response;
+               }
+            }, MOCK_CACHE_KEY);
          }
-      }, MOCK_CACHE_KEY);
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
       Thread.sleep(200);
 
@@ -171,7 +204,13 @@ public class RESTClientRunner {
          responseBody = newMockResponse;
          mockProps.put("etag", "MOCK_ETAG_VALUE2");
       }};
-      OneSignalRestClient.getSync("URL", null, MOCK_CACHE_KEY);
+
+      new Thread(new Runnable() {
+         @Override
+         public void run() {
+            OneSignalRestClient.getSync("URL", null, MOCK_CACHE_KEY);
+         }
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
       Thread.sleep(200);
 
@@ -179,12 +218,17 @@ public class RESTClientRunner {
       ShadowOneSignalRestClientWithMockConnection.mockResponse = new MockHttpURLConnection.MockResponse() {{
          status = 304;
       }};
-      OneSignalRestClient.getSync("URL", new OneSignalRestClient.ResponseHandler() {
+      new Thread(new Runnable() {
          @Override
-         public void onSuccess(String response) {
-            secondResponse = response.replace("\u0000", "");
+         public void run() {
+            OneSignalRestClient.getSync("URL", new OneSignalRestClient.ResponseHandler() {
+               @Override
+               public void onSuccess(String response) {
+                  secondResponse = response.replace("\u0000", "");
+               }
+            }, MOCK_CACHE_KEY);
          }
-      }, MOCK_CACHE_KEY);
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
       Thread.sleep(200);
 
@@ -203,21 +247,26 @@ public class RESTClientRunner {
 
       final String[] failResponse = {null};
       final int[] statusCodeResponse = {0};
-      OneSignalRestClient.postSync("URL", null, new OneSignalRestClient.ResponseHandler() {
+      new Thread(new Runnable() {
          @Override
-         public void onSuccess(String response) {
-            super.onSuccess(response);
-         }
+         public void run() {
+            OneSignalRestClient.postSync("URL", null, new OneSignalRestClient.ResponseHandler() {
+               @Override
+               public void onSuccess(String response) {
+                  super.onSuccess(response);
+               }
 
-         @Override
-         public void onFailure(int statusCode, String response, Throwable throwable) {
-            super.onFailure(statusCode, response, throwable);
-            failResponse[0] = response;
-            statusCodeResponse[0] = statusCode;
+               @Override
+               public void onFailure(int statusCode, String response, Throwable throwable) {
+                  super.onFailure(statusCode, response, throwable);
+                  failResponse[0] = response;
+                  statusCodeResponse[0] = statusCode;
+               }
+            });
          }
-      });
-
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
+
       assertEquals(newMockResponse, failResponse[0]);
       assertEquals(statusCode, statusCodeResponse[0]);
    }
@@ -234,21 +283,27 @@ public class RESTClientRunner {
 
       final String[] failResponse = {null};
       final int[] statusCodeResponse = {0};
-      OneSignalRestClient.postSync("URL", null, new OneSignalRestClient.ResponseHandler() {
-         @Override
-         public void onSuccess(String response) {
-            super.onSuccess(response);
-         }
 
+      new Thread(new Runnable() {
          @Override
-         public void onFailure(int statusCode, String response, Throwable throwable) {
-            super.onFailure(statusCode, response, throwable);
-            failResponse[0] = response;
-            statusCodeResponse[0] = statusCode;
-         }
-      });
+         public void run() {
+            OneSignalRestClient.postSync("URL", null, new OneSignalRestClient.ResponseHandler() {
+               @Override
+               public void onSuccess(String response) {
+                  super.onSuccess(response);
+               }
 
+               @Override
+               public void onFailure(int statusCode, String response, Throwable throwable) {
+                  super.onFailure(statusCode, response, throwable);
+                  failResponse[0] = response;
+                  statusCodeResponse[0] = statusCode;
+               }
+            });
+         }
+      }, OS_REST_CLIENT).start();
       threadAndTaskWait();
+
       assertEquals(newMockResponse, failResponse[0]);
       assertEquals(statusCode, statusCodeResponse[0]);
    }
