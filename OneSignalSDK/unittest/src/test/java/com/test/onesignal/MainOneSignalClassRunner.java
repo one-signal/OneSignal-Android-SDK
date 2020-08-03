@@ -3357,7 +3357,8 @@ public class MainOneSignalClassRunner {
    @Test
    @Config(shadows = {ShadowOneSignal.class})
    @SuppressWarnings("unchecked") // getDeclaredMethod
-   public void testLocationTimeout() throws Exception { OneSignalInit();
+   public void testLocationTimeout() throws Exception {
+      OneSignalInit();
       threadAndTaskWait();
 
       Class klass = Class.forName("com.onesignal.GMSLocationController");
