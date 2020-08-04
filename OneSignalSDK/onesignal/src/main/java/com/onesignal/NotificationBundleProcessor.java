@@ -27,22 +27,21 @@
 
 package com.onesignal;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import com.onesignal.OneSignalDbContract.NotificationTable;
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+
+import com.onesignal.OneSignalDbContract.NotificationTable;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -180,12 +179,8 @@ class NotificationBundleProcessor {
          JSONObject customJSON = getCustomJSONObject(notifiJob.jsonPayload);
    
          OneSignalDbHelper dbHelper = OneSignalDbHelper.getInstance(notifiJob.context);
-         SQLiteDatabase writableDb = null;
 
          try {
-            writableDb = dbHelper.getSQLiteDatabaseWithRetries();
-   
-            writableDb.beginTransaction();
             
             // Count any notifications with duplicated android notification ids as dismissed.
             // -1 is used to note never displayed
@@ -195,8 +190,8 @@ class NotificationBundleProcessor {
                ContentValues values = new ContentValues();
                values.put(NotificationTable.COLUMN_NAME_DISMISSED, 1);
    
-               writableDb.update(NotificationTable.TABLE_NAME, values, whereStr, null);
-               BadgeCountUpdater.update(writableDb, context);
+               dbHelper.update(NotificationTable.TABLE_NAME, values, whereStr, null);
+               BadgeCountUpdater.update(dbHelper, context);
             }
 
             // Save just received notification to DB
@@ -224,21 +219,12 @@ class NotificationBundleProcessor {
 
             values.put(NotificationTable.COLUMN_NAME_FULL_DATA, jsonPayload.toString());
 
-            writableDb.insertOrThrow(NotificationTable.TABLE_NAME, null, values);
+            dbHelper.insertOrThrow(NotificationTable.TABLE_NAME, null, values);
 
             if (!opened)
-               BadgeCountUpdater.update(writableDb, context);
-            writableDb.setTransactionSuccessful();
+               BadgeCountUpdater.update(dbHelper, context);
          } catch (Exception e) {
             OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error saving notification record! ", e);
-         } finally {
-            if (writableDb != null) {
-               try {
-                  writableDb.endTransaction(); // May throw if transaction was never opened or DB is full.
-               } catch (Throwable t) {
-                  OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error closing transaction! ", t);
-               }
-            }
          }
       } catch (JSONException e) {
          e.printStackTrace();
@@ -252,31 +238,12 @@ class NotificationBundleProcessor {
       String whereStr = NotificationTable.COLUMN_NAME_ANDROID_NOTIFICATION_ID + " = " + notifiJob.getAndroidIdWithoutCreate();
 
       OneSignalDbHelper dbHelper = OneSignalDbHelper.getInstance(notifiJob.context);
-      SQLiteDatabase writableDb = null;
 
-      try {
-         writableDb = dbHelper.getSQLiteDatabaseWithRetries();
-         writableDb.beginTransaction();
+      ContentValues values = new ContentValues();
+      values.put(NotificationTable.COLUMN_NAME_DISMISSED, 1);
 
-         ContentValues values = new ContentValues();
-         values.put(NotificationTable.COLUMN_NAME_DISMISSED, 1);
-
-         writableDb.update(NotificationTable.TABLE_NAME, values, whereStr, null);
-         BadgeCountUpdater.update(writableDb, notifiJob.context);
-
-         writableDb.setTransactionSuccessful();
-
-      } catch (Exception e) {
-         OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error saving notification record! ", e);
-      } finally {
-         if (writableDb != null) {
-            try {
-               writableDb.endTransaction(); // May throw if transaction was never opened or DB is full.
-            } catch (Throwable t) {
-               OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error closing transaction! ", t);
-            }
-         }
-      }
+      dbHelper.update(NotificationTable.TABLE_NAME, values, whereStr, null);
+      BadgeCountUpdater.update(dbHelper, notifiJob.context);
    }
 
    static @NonNull JSONObject bundleAsJSONObject(Bundle bundle) {
@@ -434,8 +401,7 @@ class NotificationBundleProcessor {
       Cursor cursor = null;
 
       try {
-         SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-         cursor = readableDb.query(
+         cursor = dbHelper.query(
                NotificationTable.TABLE_NAME,
                new String[]{NotificationTable.COLUMN_NAME_ANDROID_NOTIFICATION_ID}, // retColumn
                NotificationTable.COLUMN_NAME_COLLAPSE_ID + " = ? AND " +

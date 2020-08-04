@@ -32,9 +32,8 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.support.annotation.NonNull;
 import android.os.Build;
+import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationManagerCompat;
 
 import com.onesignal.OneSignalDbContract.NotificationTable;
@@ -98,35 +97,22 @@ class NotificationOpenedProcessor {
       }
 
       OneSignalDbHelper dbHelper = OneSignalDbHelper.getInstance(context);
-      SQLiteDatabase writableDb = null;
 
       try {
-         writableDb = dbHelper.getSQLiteDatabaseWithRetries();
-         writableDb.beginTransaction();
-
          // We just opened a summary notification.
          if (!dismissed && summaryGroup != null)
-            addChildNotifications(dataArray, summaryGroup, writableDb);
+            addChildNotifications(dataArray, summaryGroup, dbHelper);
 
-         markNotificationsConsumed(context, intent, writableDb, dismissed);
+         markNotificationsConsumed(context, intent, dbHelper, dismissed);
 
          // Notification is not a summary type but a single notification part of a group.
          if (summaryGroup == null) {
             String group = intent.getStringExtra("grp");
             if (group != null)
-               NotificationSummaryManager.updateSummaryNotificationAfterChildRemoved(context, writableDb, group, dismissed);
+               NotificationSummaryManager.updateSummaryNotificationAfterChildRemoved(context, dbHelper, group, dismissed);
          }
-         writableDb.setTransactionSuccessful();
       } catch (Exception e) {
          OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error processing notification open or dismiss record! ", e);
-      } finally {
-         if (writableDb != null) {
-            try {
-               writableDb.endTransaction(); // May throw if transaction was never opened or DB is full.
-            } catch (Throwable t) {
-               OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Error closing transaction! ", t);
-            }
-         }
       }
 
       if (!dismissed)
@@ -144,7 +130,7 @@ class NotificationOpenedProcessor {
       return true;
    }
 
-   private static void addChildNotifications(JSONArray dataArray, String summaryGroup, SQLiteDatabase writableDb) {
+   private static void addChildNotifications(JSONArray dataArray, String summaryGroup, OneSignalDbHelper writableDb) {
       String[] retColumn = { NotificationTable.COLUMN_NAME_FULL_DATA };
       String[] whereArgs = { summaryGroup };
 
@@ -173,7 +159,7 @@ class NotificationOpenedProcessor {
       cursor.close();
    }
 
-   private static void markNotificationsConsumed(Context context, Intent intent, SQLiteDatabase writableDb, boolean dismissed) {
+   private static void markNotificationsConsumed(Context context, Intent intent, OneSignalDbHelper writableDb, boolean dismissed) {
       String summaryGroup = intent.getStringExtra("summary");
       String whereStr;
       String[] whereArgs = null;
@@ -212,7 +198,7 @@ class NotificationOpenedProcessor {
    /**
     * Handles clearing the status bar notifications when opened
     */
-   private static void clearStatusBarNotifications(Context context, SQLiteDatabase writableDb, String summaryGroup) {
+   private static void clearStatusBarNotifications(Context context, OneSignalDbHelper writableDb, String summaryGroup) {
       // Handling for clearing the notification when opened
       if (summaryGroup != null)
          NotificationSummaryManager.clearNotificationOnSummaryClick(context, writableDb, summaryGroup);

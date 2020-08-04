@@ -4,7 +4,6 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
 import android.service.notification.StatusBarNotification;
 import android.support.annotation.RequiresApi;
@@ -119,7 +118,7 @@ public class OneSignalNotificationManager {
     /**
      * Query SQLiteDatabase by group to find the most recent created notification id
      */
-    static Integer getMostRecentNotifIdFromGroup(SQLiteDatabase db, String group, boolean isGroupless) {
+    static Integer getMostRecentNotifIdFromGroup(OneSignalDbHelper db, String group, boolean isGroupless) {
         Integer recentId = null;
         Cursor cursor = null;
 

@@ -38,7 +38,6 @@ import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -144,13 +143,12 @@ import static org.robolectric.Shadows.shadowOf;
         },
         sdk = 21
 )
-
 @RunWith(RobolectricTestRunner.class)
 public class GenerateNotificationRunner {
-   
+
    private Activity blankActivity;
    private static ActivityController<BlankActivity> blankActivityController;
-   
+
    private static final String notifMessage = "Robo test message";
 
    private MockOneSignalDBHelper dbHelper;
@@ -161,7 +159,7 @@ public class GenerateNotificationRunner {
       TestHelpers.beforeTestSuite();
       StaticResetHelper.saveStaticValues();
    }
-   
+
    @Before // Before each test
    public void beforeEachTest() throws Exception {
       blankActivityController = Robolectric.buildActivity(BlankActivity.class).create();
@@ -170,7 +168,7 @@ public class GenerateNotificationRunner {
       dbHelper = new MockOneSignalDBHelper(RuntimeEnvironment.application);
 
       overrideNotificationId = -1;
-      
+
       TestHelpers.beforeTestInitAndCleanup();
 
       setClearGroupSummaryClick(true);
@@ -184,16 +182,16 @@ public class GenerateNotificationRunner {
    public static void afterEverything() throws Exception {
       StaticResetHelper.restSetStaticFields();
    }
-   
+
    public static Bundle getBaseNotifBundle() {
       return getBaseNotifBundle("UUID");
    }
-   
+
    public static Bundle getBaseNotifBundle(String id) {
       Bundle bundle = new Bundle();
       bundle.putString("alert", notifMessage);
       bundle.putString("custom", "{\"i\": \"" + id + "\"}");
-      
+
       return bundle;
    }
 
@@ -202,11 +200,11 @@ public class GenerateNotificationRunner {
           .putExtra(BUNDLE_KEY_ANDROID_NOTIFICATION_ID, notifId)
           .putExtra(BUNDLE_KEY_ONESIGNAL_DATA, OneSignalPackagePrivateHelper.bundleAsJSONObject(bundle).toString());
    }
-   
+
    private Intent createOpenIntent(Bundle bundle) {
       return createOpenIntent(ShadowRoboNotificationManager.lastNotifId, bundle);
    }
-   
+
    @Test
    @Config (sdk = 22)
    public void shouldSetTitleCorrectly() {
@@ -214,21 +212,21 @@ public class GenerateNotificationRunner {
       Bundle bundle = getBaseNotifBundle();
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
       assertEquals("UnitTestApp", ShadowRoboNotificationManager.getLastShadowNotif().getContentTitle());
-      
+
       // Should allow title from GCM payload.
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("title", "title123");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
       assertEquals("title123", ShadowRoboNotificationManager.getLastShadowNotif().getContentTitle());
    }
-   
+
    @Test
    @Config (sdk = 22)
    public void shouldProcessRestore() {
       BundleCompat bundle = createInternalPayloadBundle(getBaseNotifBundle());
       bundle.putInt("android_notif_id", 0);
       bundle.putBoolean("restoring", true);
-      
+
       NotificationBundleProcessor_ProcessFromGCMIntentService_NoWrap(blankActivity, bundle, null);
       assertEquals("UnitTestApp", ShadowRoboNotificationManager.getLastShadowNotif().getContentTitle());
    }
@@ -250,10 +248,9 @@ public class GenerateNotificationRunner {
       JobScheduler scheduler = (JobScheduler)blankActivity.getSystemService(Context.JOB_SCHEDULER_SERVICE);
       assertTrue(scheduler.getAllPendingJobs().isEmpty());
    }
-   
-   
+
    private static OSNotificationOpenResult lastOpenResult;
-   
+
    @Test
    public void shouldContainPayloadWhenOldSummaryNotificationIsOpened() {
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
@@ -263,31 +260,30 @@ public class GenerateNotificationRunner {
             lastOpenResult = result;
          }
       });
-      
+
       // Display 2 notifications that will be grouped together.
       Bundle bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       // Go forward 4 weeks
       advanceSystemTimeBy(2_419_202);
-      
+
       // Display a 3 normal notification.
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, getBaseNotifBundle("UUID3"), null);
-   
-   
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
-      
+
       // Open the summary notification
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
       PostedNotification postedNotification = postedNotifsIterator.next().getValue();
       Intent intent = Shadows.shadowOf(postedNotification.notif.contentIntent).getSavedIntent();
       NotificationOpenedProcessor_processFromContext(blankActivity, intent);
-      
+
       // Make sure we get a payload when it is opened.
       assertNotNull(lastOpenResult.notification.payload);
    }
@@ -298,46 +294,45 @@ public class GenerateNotificationRunner {
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
-   
+
       // Setup - Display a single notification with a grouped.
       Bundle bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
       bundle.putString("custom", "{\"i\": \"some_UUID\", \"a\": {\"actionButtons\": [{\"text\": \"test\"} ]}}");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
-   
+
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
       PostedNotification postedSummaryNotification = postedNotifsIterator.next().getValue();
-   
+
       assertEquals(Notification.FLAG_GROUP_SUMMARY, postedSummaryNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
       assertEquals(1, postedSummaryNotification.notif.actions.length);
    }
-   
+
    @Test
    public void shouldCancelAllNotificationsPartOfAGroup() throws Exception {
       // Setup - Init
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
-      
+
       // Setup - Display 3 notifications, 2 of which that will be grouped together.
       Bundle bundle = getBaseNotifBundle("UUID0");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-      
+
       bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-      
+
       assertEquals(4, ShadowRoboNotificationManager.notifications.size());
-      
+
       OneSignal.cancelGroupedNotifications("test1");
       assertEquals(1, ShadowRoboNotificationManager.notifications.size());
    }
-
 
    @Test
    @Config(sdk = Build.VERSION_CODES.N)
@@ -370,12 +365,10 @@ public class GenerateNotificationRunner {
         OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
         threadAndTaskWait();
 
-        SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-
         postNotificationsAndSimulateSummaryClick(true, "test1");
 
         // Validate SQL DB has removed all grouped notifs
-        int activeGroupNotifCount = queryNotificationCountFromGroup(readableDb, "test1", true);
+        int activeGroupNotifCount = queryNotificationCountFromGroup("test1", true);
         assertEquals(0, activeGroupNotifCount);
     }
 
@@ -386,12 +379,10 @@ public class GenerateNotificationRunner {
         OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
         threadAndTaskWait();
 
-        SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-
         postNotificationsAndSimulateSummaryClick(false, "test1");
 
         // Validate SQL DB has removed most recent grouped notif
-        int activeGroupNotifCount = queryNotificationCountFromGroup(readableDb, "test1", true);
+        int activeGroupNotifCount = queryNotificationCountFromGroup("test1", true);
         assertEquals(3, activeGroupNotifCount);
     }
 
@@ -402,12 +393,10 @@ public class GenerateNotificationRunner {
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
 
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-
       postNotificationsAndSimulateSummaryClick(true, "test1");
 
       // Validate SQL DB has removed all grouped notifs
-      int activeGroupNotifCount = queryNotificationCountFromGroup(readableDb, "test1", true);
+      int activeGroupNotifCount = queryNotificationCountFromGroup("test1", true);
       assertEquals(0, activeGroupNotifCount);
    }
 
@@ -418,12 +407,10 @@ public class GenerateNotificationRunner {
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
 
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-
       postNotificationsAndSimulateSummaryClick(false, "test1");
 
       // Validate SQL DB has removed most recent grouped notif
-      int activeGroupNotifCount = queryNotificationCountFromGroup(readableDb, "test1", true);
+      int activeGroupNotifCount = queryNotificationCountFromGroup("test1", true);
       assertEquals(3, activeGroupNotifCount);
    }
 
@@ -434,12 +421,10 @@ public class GenerateNotificationRunner {
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
 
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-
       postNotificationsAndSimulateSummaryClick(true, null);
 
       // Validate SQL DB has removed all groupless notifs
-      int activeGroupNotifCount = queryNotificationCountFromGroup(readableDb, null, true);
+      int activeGroupNotifCount = queryNotificationCountFromGroup(null, true);
       assertEquals(0, activeGroupNotifCount);
    }
 
@@ -450,12 +435,10 @@ public class GenerateNotificationRunner {
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
 
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-
       postNotificationsAndSimulateSummaryClick(false, null);
 
       // Validate SQL DB has removed most recent groupless notif
-      int activeGroupNotifCount = queryNotificationCountFromGroup(readableDb, null, true);
+      int activeGroupNotifCount = queryNotificationCountFromGroup(null, true);
       assertEquals(3, activeGroupNotifCount);
    }
 
@@ -482,7 +465,6 @@ public class GenerateNotificationRunner {
       TestOneSignalPrefs.saveBool(TestOneSignalPrefs.PREFS_ONESIGNAL, TestOneSignalPrefs.PREFS_OS_CLEAR_GROUP_SUMMARY_CLICK, shouldDismissAll);
    }
 
-
    @Test
    @Config(sdk = Build.VERSION_CODES.N)
    public void testGrouplessSummaryKeyReassignmentAtFourOrMoreNotification() throws Exception {
@@ -504,14 +486,13 @@ public class GenerateNotificationRunner {
       count = OneSignalNotificationManagerPackageHelper.getActiveNotifications(blankActivity).length;
       assertEquals(5, count);
 
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
       // Validate no DB changes occurred and this is only a runtime change to the groupless notifs
       // Check for 4 null group id notifs
-      int nullGroupCount = queryNotificationCountFromGroup(readableDb, null, true);
+      int nullGroupCount = queryNotificationCountFromGroup(null, true);
       assertEquals(4, nullGroupCount);
 
       // Check for 0 os_group_undefined group id notifs
-      int groupCount = queryNotificationCountFromGroup(readableDb, OneSignalNotificationManagerPackageHelper.getGrouplessSummaryKey(), true);
+      int groupCount = queryNotificationCountFromGroup(OneSignalNotificationManagerPackageHelper.getGrouplessSummaryKey(), true);
       assertEquals(0, groupCount);
    }
 
@@ -526,7 +507,7 @@ public class GenerateNotificationRunner {
        return bundle;
     }
 
-   public int queryNotificationCountFromGroup(SQLiteDatabase db, String group, boolean activeNotifs) {
+   public int queryNotificationCountFromGroup(String group, boolean activeNotifications) {
       boolean isGroupless = group == null;
 
       String whereStr = isGroupless ?
@@ -536,12 +517,12 @@ public class GenerateNotificationRunner {
               NotificationTable.COLUMN_NAME_OPENED + " = ? AND " +
               NotificationTable.COLUMN_NAME_IS_SUMMARY + " = 0";
 
-      String active = activeNotifs ? "0" : "1";
+      String active = activeNotifications ? "0" : "1";
       String[] whereArgs = isGroupless ?
               new String[]{ active, active } :
               new String[]{ group, active, active };
 
-      Cursor cursor = db.query(NotificationTable.TABLE_NAME,
+      Cursor cursor = dbHelper.query(NotificationTable.TABLE_NAME,
               null,
               whereStr,
               whereArgs,
@@ -560,37 +541,36 @@ public class GenerateNotificationRunner {
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
       runImplicitServices(); // Flushes out other services, seems to be a roboelectric bug
-      
+
       // Setup - Display 3 notifications that will be grouped together.
       Bundle bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       bundle = getBaseNotifBundle("UUID3");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
-      
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
-      
+
       // Test - 3 notifis + 1 summary
       assertEquals(4, postedNotifs.size());
-      
-      
+
+
       // Test - First notification should be the summary
       PostedNotification postedSummaryNotification = postedNotifsIterator.next().getValue();
       assertEquals("3 new messages", postedSummaryNotification.getShadow().getContentText());
       assertEquals(Notification.FLAG_GROUP_SUMMARY, postedSummaryNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
-   
+
       // Setup - Let's cancel a child notification.
       PostedNotification postedNotification = postedNotifsIterator.next().getValue();
       OneSignal.cancelNotification(postedNotification.id);
-   
+
       // Test - It should update summary text to say 2 notifications
       postedNotifs = ShadowRoboNotificationManager.notifications;
       assertEquals(3, postedNotifs.size());       // 2 notifis + 1 summary
@@ -598,13 +578,13 @@ public class GenerateNotificationRunner {
       postedSummaryNotification = postedNotifsIterator.next().getValue();
       assertEquals("2 new messages", postedSummaryNotification.getShadow().getContentText());
       assertEquals(Notification.FLAG_GROUP_SUMMARY, postedSummaryNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
-   
+
       // Setup - Let's cancel a 2nd child notification.
       postedNotification = postedNotifsIterator.next().getValue();
       OneSignal.cancelNotification(postedNotification.id);
       runImplicitServices();
       Thread.sleep(1_000); // TODO: Service runs AsyncTask. Need to wait for this
-   
+
       // Test - It should update summary notification to be the text of the last remaining one.
       postedNotifs = ShadowRoboNotificationManager.notifications;
       assertEquals(2, postedNotifs.size()); // 1 notifis + 1 summary
@@ -612,14 +592,14 @@ public class GenerateNotificationRunner {
       postedSummaryNotification = postedNotifsIterator.next().getValue();
       assertEquals(notifMessage, postedSummaryNotification.getShadow().getContentText());
       assertEquals(Notification.FLAG_GROUP_SUMMARY, postedSummaryNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
-      
+
       // Test - Let's make sure we will have our last notification too
       postedNotification = postedNotifsIterator.next().getValue();
       assertEquals(notifMessage, postedNotification.getShadow().getContentText());
-      
+
       // Setup - Let's cancel our 3rd and last child notification.
       OneSignal.cancelNotification(postedNotification.id);
-   
+
       // Test - No more notifications! :)
       postedNotifs = ShadowRoboNotificationManager.notifications;
       assertEquals(0, postedNotifs.size());
@@ -641,29 +621,29 @@ public class GenerateNotificationRunner {
          Robolectric.buildService(serviceClass, intent).create().startCommand(0, 0);
       } while (true);
    }
-   
+
    @Test
    public void shouldUpdateBadgesWhenDismissingNotification() {
       Bundle bundle = getBaseNotifBundle();
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
       assertEquals(notifMessage, ShadowRoboNotificationManager.getLastShadowNotif().getContentText());
       assertEquals(1, ShadowBadgeCountUpdater.lastCount);
-   
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
       PostedNotification postedNotification = postedNotifsIterator.next().getValue();
       Intent intent = Shadows.shadowOf(postedNotification.notif.deleteIntent).getSavedIntent();
       NotificationOpenedProcessor_processFromContext(blankActivity, intent);
-   
+
       assertEquals(0, ShadowBadgeCountUpdater.lastCount);
    }
-   
+
    @Test
    public void shouldNotSetBadgesWhenNotificationPermissionIsDisabled() throws Exception {
       ShadowNotificationManagerCompat.enabled = false;
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
-      
+
       Bundle bundle = getBaseNotifBundle();
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
       assertEquals(0, ShadowBadgeCountUpdater.lastCount);
@@ -687,43 +667,42 @@ public class GenerateNotificationRunner {
 
       assertNull(Shadows.shadowOf(blankActivity).getNextStartedService());
    }
-   
+
    @Test
    public void shouldNotShowNotificationWhenAlertIsBlankOrNull() {
       Bundle bundle = getBaseNotifBundle();
       bundle.remove("alert");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       assertNoNotifications();
-   
+
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("alert", "");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       assertNoNotifications();
 
       assertNotificationDbRecords(2);
    }
-   
+
    @Test
    public void shouldUpdateNormalNotificationDisplayWhenReplacingANotification() throws Exception {
       // Setup - init
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification);
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
-   
+
       // Setup - Display 2 notifications with the same group and collapse_id
       Bundle bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
       bundle.putString("collapse_key", "1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("grp", "test1");
       bundle.putString("collapse_key", "1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
-      
+
       // Test - Summary created and sub notification. Summary will look the same as the normal notification.
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
@@ -731,16 +710,16 @@ public class GenerateNotificationRunner {
       PostedNotification postedSummaryNotification = postedNotifsIterator.next().getValue();
       assertEquals(notifMessage, postedSummaryNotification.getShadow().getContentText());
       assertEquals(Notification.FLAG_GROUP_SUMMARY, postedSummaryNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
-   
+
       int lastNotifId = postedNotifsIterator.next().getValue().id;
       ShadowRoboNotificationManager.notifications.clear();
-      
+
       // Setup - Restore
       BundleCompat bundle2 = createInternalPayloadBundle(bundle);
       bundle2.putInt("android_notif_id", lastNotifId);
       bundle2.putBoolean("restoring", true);
       NotificationBundleProcessor_ProcessFromGCMIntentService_NoWrap(blankActivity, bundle2, null);
-      
+
       // Test - Restored notifications display exactly the same as they did when received.
       postedNotifs = ShadowRoboNotificationManager.notifications;
       postedNotifsIterator = postedNotifs.entrySet().iterator();
@@ -749,7 +728,6 @@ public class GenerateNotificationRunner {
       assertEquals(notifMessage, postedSummaryNotification.getShadow().getContentText());
       assertEquals(Notification.FLAG_GROUP_SUMMARY, postedSummaryNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
    }
-   
 
    @Test
    public void shouldHandleBasicNotifications() throws Exception {
@@ -760,8 +738,7 @@ public class GenerateNotificationRunner {
       assertEquals(1, ShadowBadgeCountUpdater.lastCount);
 
       // Should have 1 DB record with the correct time stamp
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      Cursor cursor = readableDb.query(NotificationTable.TABLE_NAME, new String[] { "created_time" }, null, null, null, null, null);
+      Cursor cursor = dbHelper.query(NotificationTable.TABLE_NAME, new String[] { "created_time" }, null, null, null, null, null);
       assertEquals(1, cursor.getCount());
       // Time stamp should be set and within a small range.
       long currentTime = System.currentTimeMillis() / 1000;
@@ -771,7 +748,7 @@ public class GenerateNotificationRunner {
 
       // Should get marked as opened.
       NotificationOpenedProcessor_processFromContext(blankActivity, createOpenIntent(bundle));
-      cursor = readableDb.query(NotificationTable.TABLE_NAME, new String[] { "opened", "android_notification_id" }, null, null, null, null, null);
+      cursor = dbHelper.query(NotificationTable.TABLE_NAME, new String[] { "opened", "android_notification_id" }, null, null, null, null, null);
       cursor.moveToFirst();
       assertEquals(1, cursor.getInt(0));
       assertEquals(0, ShadowBadgeCountUpdater.lastCount);
@@ -779,8 +756,7 @@ public class GenerateNotificationRunner {
 
       // Should not display a duplicate notification, count should still be 1
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-      readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      cursor = readableDb.query(NotificationTable.TABLE_NAME, null, null, null, null, null, null);
+      cursor = dbHelper.query(NotificationTable.TABLE_NAME, null, null, null, null, null, null);
       assertEquals(1, cursor.getCount());
       assertEquals(0, ShadowBadgeCountUpdater.lastCount);
       cursor.close();
@@ -802,8 +778,7 @@ public class GenerateNotificationRunner {
       // First opened should of been cleaned up, 1 week old non opened notification should stay, and one new record.
       bundle = getBaseNotifBundle("UUID3");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-      readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      cursor = readableDb.query(NotificationTable.TABLE_NAME, new String[] { }, null, null, null, null, null);
+      cursor = dbHelper.query(NotificationTable.TABLE_NAME, new String[] { }, null, null, null, null, null);
 
       assertEquals(1, cursor.getCount());
 
@@ -880,8 +855,7 @@ public class GenerateNotificationRunner {
       advanceSystemTimeBy(604_801);
 
       // Should not count as a badge
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      OneSignalPackagePrivateHelper.BadgeCountUpdater.update(readableDb, blankActivity);
+      OneSignalPackagePrivateHelper.BadgeCountUpdater.update(dbHelper, blankActivity);
       assertEquals(0, ShadowBadgeCountUpdater.lastCount);
    }
 
@@ -909,13 +883,10 @@ public class GenerateNotificationRunner {
       // Badge count should only be one as only one notification is visible in the notification area.
       assertEquals(1, ShadowBadgeCountUpdater.lastCount);
 
-
       // Should be 2 DB entries (summary and individual)
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      Cursor cursor = readableDb.query(NotificationTable.TABLE_NAME, null, null, null, null, null, null);
+      Cursor cursor = dbHelper.query(NotificationTable.TABLE_NAME, null, null, null, null, null, null);
       assertEquals(2, cursor.getCount());
       cursor.close();
-
 
       // Add another notification to the group.
       ShadowRoboNotificationManager.notifications.clear();
@@ -939,12 +910,9 @@ public class GenerateNotificationRunner {
       assertEquals("Notif test 2", postedNotification.getShadow().getContentText());
       assertEquals(0, postedNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
 
-
       // Should be 3 DB entries (summary and 2 individual)
-      readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      cursor = readableDb.query(NotificationTable.TABLE_NAME, null, null, null, null, null, null);
+      cursor = dbHelper.query(NotificationTable.TABLE_NAME, null, null, null, null, null, null);
       assertEquals(3, cursor.getCount());
-
 
       // Open summary notification
       postedNotifsIterator = postedNotifs.entrySet().iterator();
@@ -971,61 +939,56 @@ public class GenerateNotificationRunner {
       assertEquals(1, ShadowBadgeCountUpdater.lastCount);
       cursor.close();
    }
-   
+
    @Test
    public void shouldHandleOpeningInAppAlertWithGroupKeySet() {
-      SQLiteDatabase writableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, writableDb, "some_group", false);
+      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, dbHelper, "some_group", false);
    }
-   
+
    @Test
    public void shouldNotDisplaySummaryWhenDismissingAnInAppAlertIfOneDidntAlreadyExist() throws Exception {
       // Setup - init
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.InAppAlert);
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
-   
+
       // Setup1 - Display a notification with a group set
       Bundle bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       // Test1 - Manually trigger a refresh on grouped notification.
-      SQLiteDatabase writableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, writableDb, "test1", false);
+      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, dbHelper, "test1", false);
       assertEquals(0, ShadowRoboNotificationManager.notifications.size());
-   
-   
+
       // Setup2 - Display a 2nd notification with the same group key
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       // Test2 - Manually trigger a refresh on grouped notification.
-      writableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, writableDb, "test1", false);
+      NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved(blankActivity, dbHelper, "test1", false);
       assertEquals(0, ShadowRoboNotificationManager.notifications.size());
    }
-   
-   
+
    @Test
    public void shouldCorrectlyDisplaySummaryWithMixedInAppAlertsAndNotifications() throws Exception {
       // Setup - init
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.InAppAlert);
       OneSignal.init(blankActivity, "123456789", "b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       threadAndTaskWait();
-   
+
       // Setup - Display a notification with a group set
       Bundle bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-      
+
       assertEquals(0, ShadowRoboNotificationManager.notifications.size());
-   
+
       // Setup - Background app
       blankActivityController.pause();
       threadAndTaskWait();
-   
+
       // Setup - Send 2 more notifications with the same group
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("grp", "test1");
@@ -1033,13 +996,11 @@ public class GenerateNotificationRunner {
       bundle = getBaseNotifBundle("UUID3");
       bundle.putString("grp", "test1");
       NotificationBundleProcessor_ProcessFromGCMIntentService(blankActivity, bundle, null);
-   
+
       // Test - equals 3 - Should be 2 notifications + 1 summary.
       //         Alert should stay as an in-app alert.
       assertEquals(3, ShadowRoboNotificationManager.notifications.size());
    }
-   
-   
 
    @Test
    @Config(shadows = {ShadowGcmBroadcastReceiver.class})
@@ -1053,15 +1014,15 @@ public class GenerateNotificationRunner {
 
       GcmBroadcastReceiver gcmBroadcastReceiver = new GcmBroadcastReceiver();
       gcmBroadcastReceiver.onReceive(blankActivity, intentGcm);
-      
+
       // Normal notifications should be generated right from the BroadcastReceiver
       //   without creating a service.
       assertNull(Shadows.shadowOf(blankActivity).getNextStartedService());
-      
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
       PostedNotification lastNotification = postedNotifsIterator.next().getValue();
-      
+
       assertEquals(1, lastNotification.notif.actions.length);
       String json_data = shadowOf(lastNotification.notif.actions[0].actionIntent).getSavedIntent().getStringExtra(BUNDLE_KEY_ONESIGNAL_DATA);
       assertEquals("id1", new JSONObject(json_data).optString(BUNDLE_KEY_ACTION_ID));
@@ -1101,29 +1062,27 @@ public class GenerateNotificationRunner {
       Button button = alert.getButton(AlertDialog.BUTTON_NEUTRAL);
       assertEquals(button.getText(), "Ok");
    }
-   
+
    @Test
    @Config(shadows = {ShadowGcmBroadcastReceiver.class})
    public void shouldPreventOtherGCMReceiversWhenSettingEnabled() throws Exception {
       OneSignal.setInFocusDisplaying(OneSignal.OSInFocusDisplayOption.InAppAlert);
       OneSignal.startInit(blankActivity).filterOtherGCMReceivers(true).init();
       threadAndTaskWait();
-      
-      
+
       Intent intentGcm = new Intent();
       intentGcm.setAction("com.google.android.c2dm.intent.RECEIVE");
       intentGcm.putExtra("message_type", "gcm");
       Bundle bundle = getBaseNotifBundle();
       addButtonsToReceivedPayload(bundle);
       intentGcm.putExtras(bundle);
-      
+
       GcmBroadcastReceiver gcmBroadcastReceiver = new GcmBroadcastReceiver();
       gcmBroadcastReceiver.onReceive(blankActivity, intentGcm);
-      
+
       assertEquals(Activity.RESULT_OK, (int)ShadowGcmBroadcastReceiver.lastResultCode);
       assertTrue(ShadowGcmBroadcastReceiver.calledAbortBroadcast);
    }
-
 
    @Test
    public void shouldSetExpireTimeCorrectlyFromGoogleTTL() {
@@ -1147,11 +1106,11 @@ public class GenerateNotificationRunner {
       long expireTime = (Long)TestHelpers.getAllNotificationRecords(dbHelper).get(0).get(NotificationTable.COLUMN_NAME_EXPIRE_TIME);
       assertEquals((SystemClock.currentThreadTimeMillis() / 1_000L) + 259_200, expireTime);
    }
-   
+
    @Test
    @Config(shadows = {ShadowGcmBroadcastReceiver.class}, sdk = 26)
    public void shouldStartGCMServiceOnAndroidOWhenPriorityIsHighAndContainsRemoteResource() {
-      
+
       Intent intentGcm = new Intent();
       intentGcm.setAction("com.google.android.c2dm.intent.RECEIVE");
       intentGcm.putExtra("message_type", "gcm");
@@ -1160,10 +1119,10 @@ public class GenerateNotificationRunner {
       bundle.putString("licon", "http://domain.com/image.jpg");
       addButtonsToReceivedPayload(bundle);
       intentGcm.putExtras(bundle);
-      
+
       GcmBroadcastReceiver gcmBroadcastReceiver = new GcmBroadcastReceiver();
       gcmBroadcastReceiver.onReceive(blankActivity, intentGcm);
-      
+
       Intent intent = Shadows.shadowOf(blankActivity).getNextStartedService();
       assertEquals(GcmIntentService.class.getName(), intent.getComponent().getClassName());
    }
@@ -1243,7 +1202,6 @@ public class GenerateNotificationRunner {
       assertRestCalls(2);
    }
 
-   
    private OSNotification lastNotificationReceived;
    @Test
    public void shouldStillFireReceivedHandlerWhenNotificationExtenderServiceIsUsed() throws Exception {
@@ -1279,53 +1237,52 @@ public class GenerateNotificationRunner {
 
       assertNotificationDbRecords(1);
    }
-   
+
    @Test
    public void notificationExtenderServiceOverrideShouldOverrideAndroidNotificationId() {
       overrideNotificationId = 1;
-      
+
       startNotificationExtender(createInternalPayloadBundle(getBaseNotifBundle("NewUUID1")),
           NotificationExtenderServiceTest.class);
       startNotificationExtender(createInternalPayloadBundle(getBaseNotifBundle("NewUUID2")),
           NotificationExtenderServiceTest.class);
       assertEquals(1, ShadowBadgeCountUpdater.lastCount);
    }
-   
-   
+
    @Test
    @Config(sdk = 17)
    public void notificationExtenderServiceOverridePropertiesWithSummaryApi17() throws Exception {
       testNotificationExtenderServiceOverridePropertiesWithSummary();
-      
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
-      
+
       // Test - First notification should be the summary with the custom sound set.
       PostedNotification postedSummaryNotification = postedNotifsIterator.next().getValue();
       assertThat(postedSummaryNotification.notif.flags & Notification.DEFAULT_SOUND, not(Notification.DEFAULT_SOUND));
       assertEquals("content://media/internal/audio/media/32", postedSummaryNotification.notif.sound.toString());
-   
+
       assertEquals(1, postedNotifs.size());
    }
-   
+
    @Test
    @Config(sdk = 21)
    public void notificationExtenderServiceOverridePropertiesWithSummary() throws Exception {
       testNotificationExtenderServiceOverridePropertiesWithSummary();
-      
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
-   
+
       // Test - First notification should be the summary with the custom sound set.
       PostedNotification postedSummaryNotification = postedNotifsIterator.next().getValue();
       assertThat(postedSummaryNotification.notif.flags & Notification.DEFAULT_SOUND, not(Notification.DEFAULT_SOUND));
       assertEquals("content://media/internal/audio/media/32", postedSummaryNotification.notif.sound.toString());
-      
+
       // Test - individual notification 1 should not play a sound
       PostedNotification notification = postedNotifsIterator.next().getValue();
       assertThat(notification.notif.flags & Notification.DEFAULT_SOUND, not(Notification.DEFAULT_SOUND));
       assertNull(notification.notif.sound);
-   
+
       // Test - individual notification 2 should not play a sound
       notification = postedNotifsIterator.next().getValue();
       assertThat(notification.notif.flags & Notification.DEFAULT_SOUND, not(Notification.DEFAULT_SOUND));
@@ -1336,26 +1293,25 @@ public class GenerateNotificationRunner {
    private void testNotificationExtenderServiceOverridePropertiesWithSummary() {
       Bundle bundle = getBaseNotifBundle("UUID1");
       bundle.putString("grp", "test1");
-   
+
       startNotificationExtender(createInternalPayloadBundle(bundle),
           NotificationExtenderServiceOverrideProperties.class);
-   
+
       bundle = getBaseNotifBundle("UUID2");
       bundle.putString("grp", "test1");
-   
+
       startNotificationExtender(createInternalPayloadBundle(bundle),
           NotificationExtenderServiceOverrideProperties.class);
-   
-   
+
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       Iterator<Map.Entry<Integer, PostedNotification>> postedNotifsIterator = postedNotifs.entrySet().iterator();
-   
+
       // Test - First notification should be the summary
       PostedNotification postedSummaryNotification = postedNotifsIterator.next().getValue();
       assertEquals("2 new messages", postedSummaryNotification.getShadow().getContentText());
       if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT)
          assertEquals(Notification.FLAG_GROUP_SUMMARY, postedSummaryNotification.notif.flags & Notification.FLAG_GROUP_SUMMARY);
-   
+
       // Test - Make sure summary build saved and used the developer's extender settings for the body and title
       if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2) {
          CharSequence[] lines = postedSummaryNotification.notif.extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
@@ -1363,7 +1319,6 @@ public class GenerateNotificationRunner {
             assertEquals("[Modified Tile] [Modified Body(ContentText)]", line.toString());
       }
    }
-   
 
    private NotificationExtenderServiceTestBase startNotificationExtender(BundleCompat bundlePayload, Class serviceClass) {
       ServiceController<NotificationExtenderServiceTestBase> controller = Robolectric.buildService(serviceClass);
@@ -1391,7 +1346,7 @@ public class GenerateNotificationRunner {
 
       boolean ret = OneSignalPackagePrivateHelper.GcmBroadcastReceiver_processBundle(blankActivity, bundle);
       assertTrue(ret);
-      
+
       // Test that all options are set.
       NotificationExtenderServiceTest service = (NotificationExtenderServiceTest)startNotificationExtender(createInternalPayloadBundle(getBundleWithAllOptionsSet()),
                                                                           NotificationExtenderServiceTest.class);
@@ -1432,7 +1387,6 @@ public class GenerateNotificationRunner {
 
       assertThat(service.notificationId, not(-1));
 
-
       // Test a basic notification without anything special.
       startNotificationExtender(createInternalPayloadBundle(getBaseNotifBundle()), NotificationExtenderServiceTest.class);
       assertFalse(ShadowOneSignal.messages.contains("Error assigning"));
@@ -1445,10 +1399,9 @@ public class GenerateNotificationRunner {
       Map<Integer, PostedNotification> postedNotifs = ShadowRoboNotificationManager.notifications;
       assertEquals(3, postedNotifs.size());
    }
-   
-   
+
    /* Helpers */
-   
+
    private static void assertNoNotifications() {
       assertEquals(0, ShadowRoboNotificationManager.notifications.size());
    }
@@ -1490,12 +1443,11 @@ public class GenerateNotificationRunner {
    }
 
    private void assertNotificationDbRecords(int expected) {
-      SQLiteDatabase readableDb = dbHelper.getSQLiteDatabaseWithRetries();
-      Cursor cursor = readableDb.query(NotificationTable.TABLE_NAME, new String[] { "created_time" }, null, null, null, null, null);
+      Cursor cursor = dbHelper.query(NotificationTable.TABLE_NAME, new String[] { "created_time" }, null, null, null, null, null);
       assertEquals(expected, cursor.getCount());
       cursor.close();
    }
-   
+
    static abstract class NotificationExtenderServiceTestBase extends NotificationExtenderService {
       // Override onStartCommand to manually call onHandleIntent on the main thread.
       @Override
@@ -1505,14 +1457,13 @@ public class GenerateNotificationRunner {
          return START_REDELIVER_INTENT;
       }
    }
-   
-   
+
    static int overrideNotificationId;
    public static class NotificationExtenderServiceTest extends NotificationExtenderServiceTestBase {
       public OSNotificationReceivedResult notification;
       public int notificationId = -1;
       public static boolean throwInAppCode;
-    
+
 
       @Override
       protected boolean onNotificationProcessing(OSNotificationReceivedResult notification) {
@@ -1520,22 +1471,22 @@ public class GenerateNotificationRunner {
             throw new NullPointerException();
 
          this.notification = notification;
-   
+
          OverrideSettings overrideSettings = new OverrideSettings();
          if (overrideNotificationId != -1)
             overrideSettings.androidNotificationId = overrideNotificationId;
-         
+
          notificationId = displayNotification(overrideSettings).androidNotificationId;
 
          return true;
       }
    }
-   
+
    public static class NotificationExtenderServiceOverrideProperties extends NotificationExtenderServiceTestBase {
-      
+
       @Override
       protected boolean onNotificationProcessing(OSNotificationReceivedResult notification) {
-         
+
          OverrideSettings overrideSettings = new OverrideSettings();
          overrideSettings.extender = new NotificationCompat.Extender() {
             @Override
@@ -1551,7 +1502,7 @@ public class GenerateNotificationRunner {
                } catch (Throwable t) {
                   t.printStackTrace();
                }
-               
+
                return builder.setSound(Uri.parse("content://media/internal/audio/media/32"))
                    .setColor(new BigInteger("FF00FF00", 16).intValue())
                    .setContentTitle("[Modified Tile]")
@@ -1560,12 +1511,11 @@ public class GenerateNotificationRunner {
             }
          };
          displayNotification(overrideSettings);
-         
+
          return true;
       }
    }
-   
-   
+
    public static class NotificationExtenderServiceTestReturnFalse extends NotificationExtenderServiceTest {
       @Override
       protected boolean onNotificationProcessing(OSNotificationReceivedResult notification) {
