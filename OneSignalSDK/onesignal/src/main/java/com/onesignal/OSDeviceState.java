@@ -27,6 +27,8 @@
 
 package com.onesignal;
 
+import org.json.JSONObject;
+
 public class OSDeviceState {
 
     private final boolean notificationEnabled;
@@ -112,5 +114,23 @@ public class OSDeviceState {
      */
     public String getEmailAddress() {
         return emailAddress;
+    }
+
+    public JSONObject toJSONObject() {
+        JSONObject mainObj = new JSONObject();
+
+        try {
+            mainObj.put("notification_enabled", notificationEnabled);
+            mainObj.put("push_disabled", pushDisabled);
+            mainObj.put("subscribed", subscribed);
+            mainObj.put("user_id", userId);
+            mainObj.put("push_token", pushToken);
+            mainObj.put("email_user_id", emailUserId);
+            mainObj.put("email_address", emailAddress);
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+
+        return mainObj;
     }
 }
