@@ -1502,12 +1502,6 @@ public class GenerateNotificationRunner {
          OSNotification notification = receivedEvent.getNotification();
          OSMutableNotification mutableNotification = notification.mutableCopy();
          mutableNotification.setAndroidNotificationId(1);
-//         OSNotificationController.OverrideSettings overrideSettings = new OSNotificationController.OverrideSettings();
-//         overrideSettings.setAndroidNotificationId(1);
-//         notification.setModifiedContent(overrideSettings);
-
-         // Display called to show notification
-//         OSNotificationDisplayedResult notificationDisplayedResult = notification.display();
 
          // Complete is called to end NotificationProcessingHandler
          receivedEvent.complete(mutableNotification);
@@ -1984,23 +1978,86 @@ public class GenerateNotificationRunner {
 
    @Test
    @Config(shadows = { ShadowTimeoutHandler.class })
-   public void testNotificationWillShowInForegroundHandler_workTimeLongerThanTimeout() throws Exception {
+   public void testNotificationServiceAndWillShowInForegroundHandler_workTimeLongerThanTimeout() throws Exception {
+      startRemoteNotificationReceivedHandlerService("com.test.onesignal.GenerateNotificationRunner$" +
+              "RemoteNotificationReceivedHandler_notificationReceivedCompleteCalledAfterLongWork");
       // 1. Init OneSignal
       OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
       OneSignal.initWithContext(blankActivity);
-      OneSignal.setNotificationWillShowInForegroundHandler(new OneSignal.NotificationWillShowInForegroundHandler() {
-         @Override
-         public void notificationWillShowInForeground(OSNotificationReceivedEvent notificationReceivedEvent) {
-            callbackCounter++;
-            lastNotificationReceivedEvent = notificationReceivedEvent;
+      OneSignal.setNotificationWillShowInForegroundHandler(notificationReceivedEvent -> {
+         callbackCounter++;
+         lastNotificationReceivedEvent = notificationReceivedEvent;
 
-            // Simulate doing work for 3 seconds
+         new Thread(() -> {
+            // Simulate doing work for 5 seconds
             try {
-               Thread.sleep(3_000L);
+               Thread.sleep(5_000L);
+               // Make sure 1 notification doesn't exists in DB yet
+               assertNotificationDbRecords(0);
                notificationReceivedEvent.complete(notificationReceivedEvent.getNotification());
             } catch (InterruptedException e) {
                e.printStackTrace();
             }
+         }, "OS_LONG_WORK").start();
+      });
+      threadAndTaskWait();
+
+      blankActivityController.resume();
+      threadAndTaskWait();
+
+      // Mock timeout to 1, given that we are delaying the complete inside NotificationExtensionService and NotificationWillShowInForegroundHandler
+      // We depend on the timeout complete
+      ShadowTimeoutHandler.setMockDelayMillis(1);
+      // 2. Receive a notification
+      FCMBroadcastReceiver_processBundle(blankActivity, getBaseNotifBundle());
+      threadAndTaskWait();
+
+      // 3. Make sure AppNotificationJob is not null
+      assertNotNull(lastNotificationReceivedEvent);
+
+      // 4. Make sure the callback counter is only fired once for App NotificationWillShowInForegroundHandler
+      assertEquals(1, callbackCounter);
+
+      // 5. Make sure 1 notification exists in DB
+      assertNotificationDbRecords(1);
+   }
+
+   /**
+    * @see #testNotificationServiceAndWillShowInForegroundHandler_workTimeLongerThanTimeout
+    */
+   public static class RemoteNotificationReceivedHandler_notificationReceivedCompleteCalledAfterLongWork implements OneSignal.OSRemoteNotificationReceivedHandler {
+
+      @Override
+      public void remoteNotificationReceived(Context context, OSNotificationReceivedEvent receivedEvent) {
+         lastNotificationReceived = receivedEvent;
+
+         OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "RemoteNotificationReceivedHandler_notificationReceivedCompleteNotCalled remoteNotificationReceived called");
+
+         try {
+            Thread.sleep(3_000L);
+         } catch (InterruptedException e) {
+            e.printStackTrace();
+         }
+         receivedEvent.complete(receivedEvent.getNotification());
+      }
+   }
+
+   @Test
+   @Config(shadows = { ShadowTimeoutHandler.class })
+   public void testNotificationWillShowInForegroundHandler_workTimeLongerThanTimeout() throws Exception {
+      // 1. Init OneSignal
+      OneSignal.setAppId("b2f7f966-d8cc-11e4-bed1-df8f05be55ba");
+      OneSignal.initWithContext(blankActivity);
+      OneSignal.setNotificationWillShowInForegroundHandler(notificationReceivedEvent -> {
+         callbackCounter++;
+         lastNotificationReceivedEvent = notificationReceivedEvent;
+
+         // Simulate doing work for 3 seconds
+         try {
+            Thread.sleep(3_000L);
+            notificationReceivedEvent.complete(notificationReceivedEvent.getNotification());
+         } catch (InterruptedException e) {
+            e.printStackTrace();
          }
       });
       threadAndTaskWait();
