@@ -58,6 +58,7 @@ import org.json.JSONObject;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -275,6 +276,7 @@ public class OneSignal {
    }
 
    static Context appContext;
+   static WeakReference<Activity> appActivity;
    static String appId;
    static String googleProjectNumber;
 
@@ -574,7 +576,10 @@ public class OneSignal {
       }
 
       logger.verbose("setAppId(id) successful and appContext is set, continuing OneSignal init...");
-      init(appContext);
+      if (appActivity != null && appActivity.get() != null)
+         initWithContext(appActivity.get());
+      else
+         init(appContext);
    }
 
    /**
@@ -594,6 +599,8 @@ public class OneSignal {
 
       boolean wasAppContextNull = (appContext == null);
       appContext = context.getApplicationContext();
+      if (context instanceof  Activity)
+         appActivity = new WeakReference<>((Activity) context);
       setupActivityLifecycleListener(wasAppContextNull);
       setupPrivacyConsent(appContext);
 
@@ -671,6 +678,8 @@ public class OneSignal {
       }
 
       handleActivityLifecycleHandler(context);
+      // Clean saved init activity
+      appActivity = null;
 
       OneSignalStateSynchronizer.initUserState();
 
@@ -771,7 +780,7 @@ public class OneSignal {
 
    private static void handleActivityLifecycleHandler(Context context) {
       ActivityLifecycleHandler activityLifecycleHandler = ActivityLifecycleListener.getActivityLifecycleHandler();
-      inForeground = OneSignal.getCurrentActivity() != null;
+      inForeground = OneSignal.getCurrentActivity() != null || context instanceof Activity;
       logger.debug("OneSignal handleActivityLifecycleHandler inForeground: " + inForeground);
 
       if (inForeground) {
