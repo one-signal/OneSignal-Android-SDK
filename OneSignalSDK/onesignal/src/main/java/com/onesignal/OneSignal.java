@@ -419,7 +419,7 @@ public class OneSignal {
          return null;
 
       if (currentSubscriptionState == null) {
-         currentSubscriptionState = new OSSubscriptionState(false, getCurrentPermissionState(context).getEnabled());
+         currentSubscriptionState = new OSSubscriptionState(false, getCurrentPermissionState(context).areNotificationsEnabled());
          getCurrentPermissionState(context).observable.addObserver(currentSubscriptionState);
          currentSubscriptionState.observable.addObserverStrong(new OSSubscriptionChangedInternalObserver());
       }
@@ -2305,7 +2305,7 @@ public class OneSignal {
       if (shouldLogUserPrivacyConsentErrorMessageForMethodName(OSTaskController.SET_SUBSCRIPTION))
          return;
 
-      getCurrentSubscriptionState(appContext).setUserSubscriptionSetting(disable);
+      getCurrentSubscriptionState(appContext).setPushDisabled(!disable);
       OneSignalStateSynchronizer.setSubscription(disable);
    }
 

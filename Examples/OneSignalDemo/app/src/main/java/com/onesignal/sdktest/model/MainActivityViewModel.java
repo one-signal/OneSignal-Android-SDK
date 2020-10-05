@@ -303,16 +303,16 @@ public class MainActivityViewModel implements ActivityViewModel {
                 OneSignal
                         .getPermissionSubscriptionState()
                         .getSubscriptionStatus()
-                        .getSubscribed();
+                        .isSubscribed();
 
-        boolean isPermissionEnabled = stateChanges.getTo().getEnabled();
+        boolean isPermissionEnabled = stateChanges.getTo().areNotificationsEnabled();
         subscriptionSwitch.setEnabled(isPermissionEnabled);
         subscriptionSwitch.setChecked(isSubscribed);
     }
 
     @Override
     public void onOSSubscriptionChanged(OSSubscriptionStateChanges stateChanges) {
-        boolean isSubscribed = stateChanges.getTo().getSubscribed();
+        boolean isSubscribed = stateChanges.getTo().isSubscribed();
         subscriptionSwitch.setChecked(isSubscribed);
         SharedPreferenceUtil.cacheLocationSharedStatus(context, isSubscribed);
     }
@@ -464,14 +464,14 @@ public class MainActivityViewModel implements ActivityViewModel {
                 OneSignal
                         .getPermissionSubscriptionState()
                         .getPermissionStatus()
-                        .getEnabled();
+                        .areNotificationsEnabled();
 
         final boolean isSubscribed = OneSignal
                 .getPermissionSubscriptionState() != null &&
                 OneSignal
                         .getPermissionSubscriptionState()
                         .getSubscriptionStatus()
-                        .getSubscribed();
+                        .isSubscribed();
 
         subscriptionSwitch.setEnabled(isPermissionEnabled);
         subscriptionSwitch.setChecked(isSubscribed);
