@@ -46,7 +46,7 @@ public class MainApplication extends Application {
         });
 
         OneSignal.unsubscribeWhenNotificationsAreDisabled(true);
-        OneSignal.pauseInAppMessages(true);
+        OneSignal.pauseInAppMessages(false);
         OneSignal.setLocationShared(false);
 
         Log.d(Tag.DEBUG, Text.ONESIGNAL_SDK_INIT);
