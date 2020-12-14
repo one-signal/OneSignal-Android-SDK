@@ -447,8 +447,10 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         final String messagePrefixedPageId = message.messageId + pageId;
 
         // Never send multiple page impressions for the same message UUID unless that page change is from an IAM with redisplay
-        if (message.getViewedPageIds().contains(pageId) || viewedPageIds.contains(messagePrefixedPageId))
+        if (message.getViewedPageIds().contains(pageId) || viewedPageIds.contains(messagePrefixedPageId)) {
+            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.VERBOSE, "Already sent page impression for id: " + pageId);
             return;
+        }
 
         message.addPageId(page.getPageId());
         viewedPageIds.add(messagePrefixedPageId);
