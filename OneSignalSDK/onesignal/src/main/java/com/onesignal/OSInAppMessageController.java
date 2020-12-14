@@ -51,6 +51,9 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
     //   This means their impression has been successfully posted to our backend and should not be counted again
     @NonNull
     final private Set<String> impressionedMessages;
+    //   This means their impression has been successfully posted to our backend and should not be counted again
+    @NonNull
+    final private Set<String> viewedPageIds;
     // IAM clicks that have been successfully posted to our backend and should not be counted again
     @NonNull
     final private Set<String> clickedClickIds;
@@ -75,6 +78,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         dismissedMessages = OSUtils.newConcurrentSet();
         messageDisplayQueue = new ArrayList<>();
         impressionedMessages = OSUtils.newConcurrentSet();
+        viewedPageIds = OSUtils.newConcurrentSet();
         clickedClickIds = OSUtils.newConcurrentSet();
         triggerController = new OSTriggerController(this);
         systemConditionController = new OSSystemConditionController(this);
@@ -95,6 +99,14 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         );
         if (tempImpressionsSet != null)
             impressionedMessages.addAll(tempImpressionsSet);
+
+        Set<String> tempPageImpressionsSet = OneSignalPrefs.getStringSet(
+                OneSignalPrefs.PREFS_ONESIGNAL,
+                OneSignalPrefs.PREFS_OS_PAGE_IMPRESSIONED_IAMS,
+                null
+        );
+        if (tempPageImpressionsSet != null)
+            viewedPageIds.addAll(tempPageImpressionsSet);
 
         Set<String> tempClickedMessageIdsSet = OneSignalPrefs.getStringSet(
                 OneSignalPrefs.PREFS_ONESIGNAL,
@@ -417,6 +429,14 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         }
     }
 
+    private void saveViewedPageIdsToPrefs() {
+        OneSignalPrefs.saveStringSet(
+                OneSignalPrefs.PREFS_ONESIGNAL,
+                OneSignalPrefs.PREFS_OS_PAGE_IMPRESSIONED_IAMS,
+                // Post success, store impressioned pages to disk
+                viewedPageIds);
+    }
+
     private void fireRESTCallForPageChange(@NonNull final OSInAppMessage message, @NonNull final OSInAppMessagePage page) {
         final String variantId = variantIdForMessage(message);
         if (variantId == null)
@@ -424,11 +444,14 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
 
         final String pageId = page.getPageId();
 
+        final String messagePrefixedPageId = message.messageId + pageId;
+
         // Never send multiple page impressions for the same message UUID unless that page change is from an IAM with redisplay
-        if (message.getViewedPageIds().contains(pageId))
+        if (message.getViewedPageIds().contains(pageId) || viewedPageIds.contains(messagePrefixedPageId))
             return;
 
         message.addPageId(page.getPageId());
+        viewedPageIds.add(messagePrefixedPageId);
 
         try {
             JSONObject json = new JSONObject() {{
@@ -443,11 +466,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
                 @Override
                 void onSuccess(String response) {
                     printHttpSuccessForInAppMessageRequest("page impression", response);
-                    /*OneSignalPrefs.saveStringSet(
-                            OneSignalPrefs.PREFS_ONESIGNAL,
-                            OneSignalPrefs.PREFS_OS_PAGE_IMPRESSIONED_IAMS,
-                            // Post success, store impressioned page to disk
-                            impressionedMessages);*/
+                    saveViewedPageIdsToPrefs();
                 }
 
                 @Override
@@ -455,6 +474,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
                     printHttpErrorForInAppMessageRequest("page impression", statusCode, response);
                     // Post failed, impressionedMessage should be removed and this way another post can be attempted
                     message.getViewedPageIds().remove(page.getPageId());
+                    viewedPageIds.remove(messagePrefixedPageId);
                 }
             });
         } catch (JSONException e) {
@@ -548,6 +568,8 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
 
                 dismissedMessages.remove(message.messageId);
                 impressionedMessages.remove(message.messageId);
+                viewedPageIds.clear();
+                saveViewedPageIdsToPrefs();
                 message.clearClickIds();
                 message.clearPageIds();
             }
