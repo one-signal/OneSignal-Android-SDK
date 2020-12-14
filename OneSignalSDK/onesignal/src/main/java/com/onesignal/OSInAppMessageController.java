@@ -447,12 +447,11 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
         final String messagePrefixedPageId = message.messageId + pageId;
 
         // Never send multiple page impressions for the same message UUID unless that page change is from an IAM with redisplay
-        if (message.getViewedPageIds().contains(pageId) || viewedPageIds.contains(messagePrefixedPageId)) {
+        if (viewedPageIds.contains(messagePrefixedPageId)) {
             OneSignal.onesignalLog(OneSignal.LOG_LEVEL.VERBOSE, "Already sent page impression for id: " + pageId);
             return;
         }
 
-        message.addPageId(page.getPageId());
         viewedPageIds.add(messagePrefixedPageId);
 
         try {
@@ -474,8 +473,7 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
                 @Override
                 void onFailure(int statusCode, String response, Throwable throwable) {
                     printHttpErrorForInAppMessageRequest("page impression", statusCode, response);
-                    // Post failed, impressionedMessage should be removed and this way another post can be attempted
-                    message.getViewedPageIds().remove(page.getPageId());
+                    // Post failed, viewed page should be removed and this way another post can be attempted
                     viewedPageIds.remove(messagePrefixedPageId);
                 }
             });
@@ -573,7 +571,6 @@ class OSInAppMessageController implements OSDynamicTriggerControllerObserver, OS
                 viewedPageIds.clear();
                 saveViewedPageIdsToPrefs();
                 message.clearClickIds();
-                message.clearPageIds();
             }
         }
     }
