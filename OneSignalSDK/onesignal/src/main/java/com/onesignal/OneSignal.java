@@ -2291,12 +2291,16 @@ public class OneSignal {
    }
 
    static String getEmailId() {
-      if (TextUtils.isEmpty(emailId) && appContext != null) {
+      if (emailId == null && appContext != null) {
          emailId = OneSignalPrefs.getString(
                  OneSignalPrefs.PREFS_ONESIGNAL,
                  OneSignalPrefs.PREFS_OS_EMAIL_ID,
                  null);
       }
+
+      if (emailId != null && emailId.isEmpty())
+         return null;
+
       return emailId;
    }
 
