@@ -61,6 +61,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.robolectric.Robolectric;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.shadows.ShadowAlarmManager;
 import org.robolectric.shadows.ShadowApplication;
@@ -207,7 +208,7 @@ public class TestHelpers {
 
    // Run any OneSignal background threads including any pending runnables
    public static void threadAndTaskWait() throws Exception {
-      ShadowApplication.getInstance().getForegroundThreadScheduler().runOneTask();
+      shadowOf(RuntimeEnvironment.application).getForegroundThreadScheduler().runOneTask();
       // Runs Runnables posted by calling View.post() which are run on the main thread.
       Robolectric.getForegroundThreadScheduler().runOneTask();
 
