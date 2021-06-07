@@ -426,6 +426,7 @@ public class OneSignal {
    }
    private static OSTime time = new OSTimeImpl();
    private static OSRemoteParamController remoteParamController = new OSRemoteParamController();
+   private static OSDelayTaskController delayTaskController = new OSDelayTaskController(logger);
    private static OSTaskController taskController = new OSTaskController(logger);
    private static OSTaskRemoteController taskRemoteController = new OSTaskRemoteController(remoteParamController, logger);
    private static OneSignalAPIClient apiClient = new OneSignalRestClientWrapper();
@@ -3169,6 +3170,7 @@ public class OneSignal {
    static OSTime getTime() {
       return time;
    }
+
    /*
     * Start Mock Injection module
     */
@@ -3186,6 +3188,10 @@ public class OneSignal {
 
    static void setSharedPreferences(OSSharedPreferences preferences) {
       OneSignal.preferences = preferences;
+   }
+
+   static void setDelayTaskController(OSDelayTaskController delayTaskController) {
+      OneSignal.delayTaskController = delayTaskController;
    }
 
    static OSSessionManager.SessionListener getSessionListener() {
@@ -3206,6 +3212,10 @@ public class OneSignal {
 
    static OSTaskController getTaskController() {
       return taskController;
+   }
+
+   static OSDelayTaskController getDelayTaskController() {
+      return delayTaskController;
    }
 
    static FocusTimeController getFocusTimeController() {
