@@ -31,48 +31,51 @@ import androidx.annotation.NonNull;
 
 class OSReceiveReceiptController {
 
+    private final OSDelayTaskController taskController;
     private final OSReceiveReceiptRepository repository;
+    private final OSRemoteParamController remoteParamController;
 
     private static OSReceiveReceiptController sInstance;
 
-    private OSReceiveReceiptController() {
+    private OSReceiveReceiptController(OSRemoteParamController remoteParamController, OSDelayTaskController taskController) {
+        this.remoteParamController = remoteParamController;
+        this.taskController = taskController;
         this.repository = new OSReceiveReceiptRepository();
     }
 
     synchronized public static OSReceiveReceiptController getInstance() {
         if (sInstance == null)
-            sInstance = new OSReceiveReceiptController();
+            sInstance = new OSReceiveReceiptController(OneSignal.getRemoteParamController(), OneSignal.getDelayTaskController());
         return sInstance;
     }
 
     void sendReceiveReceipt(@NonNull final String notificationId) {
-        String appId = OneSignal.appId == null || OneSignal.appId.isEmpty() ? OneSignal.getSavedAppId() : OneSignal.appId;
-        String playerId = OneSignal.getUserId();
+        final String appId = OneSignal.appId == null || OneSignal.appId.isEmpty() ? OneSignal.getSavedAppId() : OneSignal.appId;
+        final String playerId = OneSignal.getUserId();
 
-        if (!isReceiveReceiptEnabled()) {
+        if (!remoteParamController.isReceiveReceiptEnabled()) {
             OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "sendReceiveReceipt disable");
             return;
         }
 
-        OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "sendReceiveReceipt appId: " + appId + " playerId: " + playerId + " notificationId: " + notificationId);
-        repository.sendReceiveReceipt(appId, playerId, notificationId, new OneSignalRestClient.ResponseHandler() {
+        Runnable receiveReceiptRunnable = new Runnable() {
             @Override
-            void onSuccess(String response) {
-                OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Receive receipt sent for notificationID: " + notificationId);
-            }
+            public void run() {
+                repository.sendReceiveReceipt(appId, playerId, notificationId, new OneSignalRestClient.ResponseHandler() {
+                    @Override
+                    void onSuccess(String response) {
+                        OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Receive receipt sent for notificationID: " + notificationId);
+                    }
 
-            @Override
-            void onFailure(int statusCode, String response, Throwable throwable) {
-                OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Receive receipt failed with statusCode: " + statusCode + " response: " + response);
+                    @Override
+                    void onFailure(int statusCode, String response, Throwable throwable) {
+                        OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "Receive receipt failed with statusCode: " + statusCode + " response: " + response);
+                    }
+                });
             }
-        });
+        };
+
+        taskController.delayTaskByRandom(receiveReceiptRunnable);
     }
 
-    private boolean isReceiveReceiptEnabled() {
-        return OneSignalPrefs.getBool(
-           OneSignalPrefs.PREFS_ONESIGNAL,
-           OneSignalPrefs.PREFS_OS_RECEIVE_RECEIPTS_ENABLED,
-           false
-        );
-    }
 }
