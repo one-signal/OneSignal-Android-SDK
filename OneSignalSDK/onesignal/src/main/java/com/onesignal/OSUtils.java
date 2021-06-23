@@ -47,6 +47,8 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationManagerCompat;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.util.Log;
+
 
 import androidx.legacy.content.WakefulBroadcastReceiver;
 
@@ -403,8 +405,14 @@ class OSUtils {
 
    static Bundle getManifestMetaBundle(Context context) {
       ApplicationInfo ai;
+      PackageManager pm;
       try {
-         ai = context.getPackageManager().getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA);
+         pm = context.getPackageManager();
+         ai = pm.getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA);
+         // the below prints NULL
+         Log.e("OneSignal", "metaData1 " + ai.metaData.getString("com.onesignal.NotificationAccentColor.DEFAULT"));
+         // the below prints 2131689627
+         Log.e("OneSignal", "metaData " + ai.metaData.getInt("com.onesignal.NotificationAccentColor.DEFAULT"));
          return ai.metaData;
       } catch (PackageManager.NameNotFoundException e) {
          Log(OneSignal.LOG_LEVEL.ERROR, "Manifest application info not found", e);

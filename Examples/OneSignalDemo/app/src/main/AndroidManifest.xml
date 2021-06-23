@@ -4,6 +4,8 @@
     xmlns:amazon="http://schemas.amazon.com/apk/res/android"
     package="com.onesignal.sdktest">
 
+
+
     <uses-permission android:name="com.android.vending.BILLING" />
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -29,6 +31,13 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
+
+        <!-- Example: Sets all OneSignal notification's accent color to Green by default.  -->
+        <!-- Color format is in ARGB. -->
+
+        <meta-data
+            android:name="com.onesignal.NotificationAccentColor.DEFAULT"
+            android:value="FFFF0000" />
 
         <amazon:enable-feature
             android:name="com.amazon.device.messaging"
@@ -62,8 +71,8 @@
             </intent-filter>
         </receiver>
 
-        <meta-data android:name="com.onesignal.NotificationServiceExtension"
-            android:value="com.onesignal.sdktest.notification.NotificationServiceExtension" />
+<!--        <meta-data android:name="com.onesignal.NotificationServiceExtension"-->
+<!--            android:value="com.onesignal.sdktest.notification.NotificationServiceExtension" />-->
 
         <activity
             android:name=".activity.SplashActivity"

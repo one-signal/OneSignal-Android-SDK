@@ -42,7 +42,7 @@ public class MainApplication extends Application {
             OSNotification notification = notificationReceivedEvent.getNotification();
             JSONObject data = notification.getAdditionalData();
 
-            notificationReceivedEvent.complete(null);
+            notificationReceivedEvent.complete(notification);
         });
 
         OneSignal.unsubscribeWhenNotificationsAreDisabled(true);

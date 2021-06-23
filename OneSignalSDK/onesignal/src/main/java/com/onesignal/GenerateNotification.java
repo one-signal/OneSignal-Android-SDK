@@ -42,6 +42,7 @@ import android.os.Build;
 import android.service.notification.StatusBarNotification;
 import android.text.SpannableString;
 import android.text.style.StyleSpan;
+import android.util.Log;
 import android.widget.RemoteViews;
 
 import androidx.annotation.RequiresApi;
@@ -932,10 +933,24 @@ class GenerateNotification {
             return new BigInteger(fcmJson.optString("bgac", null), 16);
       } catch (Throwable t) {} // Can throw a parse error parse error.
 
+      // Try to get "onesignal_notification_accent_color" from resources
+      // This will get the correct color for day and dark modes
+      try {
+         String defaultColor = getResourceString(OneSignal.appContext, "onesignal_notification_accent_color", null);
+         Log.e("OneSignal", "DefaultColor from strings.xml " + defaultColor);
+         if (defaultColor != null) {
+            Log.e("OneSignal", "DefaultColor from strings.xml being returned " + defaultColor);
+            return new BigInteger(defaultColor, 16);
+         }
+      } catch (Throwable t) {} // Can throw a parse error parse error.
+
       try {
          String defaultColor = OSUtils.getManifestMeta(currentContext, "com.onesignal.NotificationAccentColor.DEFAULT");
-         if (defaultColor != null)
+         Log.e("OneSignal", "DefaultColor from manifest " + defaultColor);
+         if (defaultColor != null) {
+            Log.e("OneSignal", "DefaultColor from manifest being returned " + defaultColor);
             return new BigInteger(defaultColor, 16);
+         }
       } catch (Throwable t) {} // Can throw a parse error parse error.
 
       return null;
