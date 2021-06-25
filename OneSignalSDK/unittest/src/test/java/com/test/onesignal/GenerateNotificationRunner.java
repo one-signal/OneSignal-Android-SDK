@@ -119,6 +119,7 @@ import static com.onesignal.OneSignalPackagePrivateHelper.NotificationBundleProc
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationBundleProcessor_ProcessFromFCMIntentService_NoWrap;
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationOpenedProcessor_processFromContext;
 import static com.onesignal.OneSignalPackagePrivateHelper.NotificationSummaryManager_updateSummaryNotificationAfterChildRemoved;
+import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_getAccentColor;
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setTime;
 import static com.onesignal.OneSignalPackagePrivateHelper.OneSignal_setupNotificationServiceExtension;
 import static com.onesignal.OneSignalPackagePrivateHelper.createInternalPayloadBundle;
@@ -246,7 +247,7 @@ public class GenerateNotificationRunner {
    private Intent createOpenIntent(Bundle bundle) {
       return createOpenIntent(ShadowRoboNotificationManager.lastNotifId, bundle);
    }
-   
+
    @Test
    @Config (sdk = 22, shadows = { ShadowGenerateNotification.class })
    public void shouldSetTitleCorrectly() throws Exception {
@@ -1411,7 +1412,6 @@ public class GenerateNotificationRunner {
       // 2. Add app context and setup the established notification extension service
       OneSignal.initWithContext(ApplicationProvider.getApplicationContext());
       OneSignal_setupNotificationServiceExtension();
-
       final boolean[] callbackEnded = {false};
       OneSignalPackagePrivateHelper.ProcessBundleReceiverCallback processBundleReceiverCallback = new OneSignalPackagePrivateHelper.ProcessBundleReceiverCallback() {
          public void onBundleProcessed(OneSignalPackagePrivateHelper.ProcessedBundleResult processedResult) {
@@ -1423,6 +1423,7 @@ public class GenerateNotificationRunner {
       };
 
       FCMBroadcastReceiver_processBundle(blankActivity, getBaseNotifBundle(), processBundleReceiverCallback);
+      Log.e("OneSignal nan-li", "HERE 1st");
       Awaitility.await()
               .atMost(new Duration(3, TimeUnit.SECONDS))
               .pollInterval(new Duration(100, TimeUnit.MILLISECONDS))
@@ -1431,17 +1432,23 @@ public class GenerateNotificationRunner {
               });
 
       // 4. Receive a notification with all data fields used
-      FCMBroadcastReceiver_processBundle(blankActivity, getBundleWithAllOptionsSet());
-      threadAndTaskWait();
+      Log.e("OneSignal nan-li", "HERE Second");
 
+      FCMBroadcastReceiver_processBundle(blankActivity, getBundleWithAllOptionsSet());
+
+
+      threadAndTaskWait();
       // 5. Evaluate the notification received within the NotificationProcessingHandler
       OSNotificationReceivedEvent receivedEvent = RemoteNotificationReceivedHandler_notificationReceivedProperties.notification;
       OSNotification notification = receivedEvent.getNotification();
+
+
       assertEquals("Test H", notification.getTitle());
       assertEquals("Test B", notification.getBody());
       assertEquals("9764eaeb-10ce-45b1-a66d-8f95938aaa51", notification.getNotificationId());
 
       assertEquals(0, notification.getLockScreenVisibility());
+      Log.e("OneSignal nan-li", "getsmalliconaccent color is: " + notification.getSmallIconAccentColor());
       assertEquals("FF0000FF", notification.getSmallIconAccentColor());
       assertEquals("703322744261", notification.getFromProjectNumber());
       assertEquals("FFFFFF00", notification.getLedColor());
@@ -1471,6 +1478,7 @@ public class GenerateNotificationRunner {
 
       // 6. Make sure the notification id is not -1 (not restoring)
       assertThat(RemoteNotificationReceivedHandler_notificationReceivedProperties.notificationId, not(-1));
+      Log.e("OneSignal nan-li", "HERE 1st");
 
       // 7. Test a basic notification without anything special
       FCMBroadcastReceiver_processBundle(blankActivity, getBaseNotifBundle());
@@ -2303,6 +2311,19 @@ public class GenerateNotificationRunner {
       assertNotificationDbRecords(1);
    }
 
+   //nan-li
+   /**
+    * Small icon accent color uses value in values-night when device in dark mode
+    * shouldUseDarkIconAccentColorInDarkMode
+    */
+   @Test
+   @Config(qualifiers = "night")
+   public void testNan() throws Exception {
+      BigInteger defaultColor = OneSignal_getAccentColor(new JSONObject());
+      System.out.println("nan-li Accent color is: " + defaultColor);
+      assertEquals("FFFF0000", "FFFF0000");
+   }
+
    /* Helpers */
    
    private static void assertNoNotifications() {
@@ -2315,7 +2336,7 @@ public class GenerateNotificationRunner {
       bundle.putString("title", "Test H");
       bundle.putString("alert", "Test B");
       bundle.putString("vis", "0");
-      bundle.putString("bgac", "FF0000FF");
+      //nan-li commented out: bundle.putString("bgac", "FF0000FF");
       bundle.putString("from", "703322744261");
       bundle.putString("ledc", "FFFFFF00");
       bundle.putString("bicon", "big_picture");

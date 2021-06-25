@@ -148,6 +148,7 @@ class GenerateNotification {
    }
    
    private static OneSignalNotificationBuilder getBaseOneSignalNotificationBuilder(OSNotificationGenerationJob notificationJob) {
+      Log.e("OneSignal nan-li", "inside getBaseOneSignalNotificationBuilder");
       JSONObject fcmJson = notificationJob.getJsonPayload();
       OneSignalNotificationBuilder oneSignalNotificationBuilder = new OneSignalNotificationBuilder();
       
@@ -927,7 +928,8 @@ class GenerateNotification {
    }
 
    // Android 5.0 accent color to use, only works when AndroidManifest.xml is targetSdkVersion >= 21
-   private static BigInteger getAccentColor(JSONObject fcmJson) {
+   static BigInteger getAccentColor(JSONObject fcmJson) { //nan-li removed public term
+      Log.e("OneSignal nan-li", "inside getAccentColor()");
       try {
          if (fcmJson.has("bgac"))
             return new BigInteger(fcmJson.optString("bgac", null), 16);
@@ -937,18 +939,18 @@ class GenerateNotification {
       // This will get the correct color for day and dark modes
       try {
          String defaultColor = getResourceString(OneSignal.appContext, "onesignal_notification_accent_color", null);
-         Log.e("OneSignal", "DefaultColor from strings.xml " + defaultColor);
+         Log.e("OneSignal nan-li", "DefaultColor from strings.xml " + defaultColor);
          if (defaultColor != null) {
-            Log.e("OneSignal", "DefaultColor from strings.xml being returned " + defaultColor);
+            Log.e("OneSignal nan-li", "DefaultColor from strings.xml being returned " + defaultColor);
             return new BigInteger(defaultColor, 16);
          }
       } catch (Throwable t) {} // Can throw a parse error parse error.
 
       try {
          String defaultColor = OSUtils.getManifestMeta(currentContext, "com.onesignal.NotificationAccentColor.DEFAULT");
-         Log.e("OneSignal", "DefaultColor from manifest " + defaultColor);
+         Log.e("OneSignal nan-li", "DefaultColor from manifest " + defaultColor);
          if (defaultColor != null) {
-            Log.e("OneSignal", "DefaultColor from manifest being returned " + defaultColor);
+            Log.e("OneSignal nan-li", "DefaultColor from manifest being returned " + defaultColor);
             return new BigInteger(defaultColor, 16);
          }
       } catch (Throwable t) {} // Can throw a parse error parse error.
