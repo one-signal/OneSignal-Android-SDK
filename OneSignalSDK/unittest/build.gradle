@@ -27,7 +27,6 @@ android {
         versionCode buildVersions.versionCode
         versionName buildVersions.versionName
         testOptions.unitTests.includeAndroidResources = true
-
     }
     buildTypes {
         debug {
@@ -80,5 +79,4 @@ dependencies {
     testImplementation "org.robolectric:robolectric:$roboelectricVersion"
     testImplementation "org.awaitility:awaitility:$awaitilityVersion"
     testImplementation "org.reflections:reflections:$reflectionsVersion"
-
 }
