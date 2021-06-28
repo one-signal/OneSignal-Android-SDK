@@ -1,7 +1,9 @@
 package com.onesignal;
 
 import android.content.Context;
+import android.os.Bundle;
 
+import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
 @Implements(OSUtils.class)
@@ -93,4 +95,5 @@ public class ShadowOSUtils {
    int initializationChecker(Context context, String oneSignalAppId) {
       return subscribableStatus;
    }
+
 }

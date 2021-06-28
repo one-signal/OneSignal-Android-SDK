@@ -127,7 +127,7 @@ public class OneSignalPackagePrivateHelper {
    public static void OneSignal_handleNotificationOpen(Activity context, final JSONArray data, final boolean fromAlert, final String notificationId) {
       OneSignal.handleNotificationOpen(context, data, fromAlert, notificationId);
    }
-   // nan-li
+
    public static BigInteger OneSignal_getAccentColor(JSONObject fcmJson) {
       return GenerateNotification.getAccentColor(fcmJson);
    }

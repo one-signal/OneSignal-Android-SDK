@@ -75,6 +75,7 @@ import com.onesignal.ShadowOSWebView;
 import com.onesignal.ShadowOneSignal;
 import com.onesignal.ShadowOneSignalRestClient;
 import com.onesignal.ShadowReceiveReceiptController;
+import com.onesignal.ShadowResources;
 import com.onesignal.ShadowRoboNotificationManager;
 import com.onesignal.ShadowRoboNotificationManager.PostedNotification;
 import com.onesignal.ShadowTimeoutHandler;
@@ -1423,7 +1424,6 @@ public class GenerateNotificationRunner {
       };
 
       FCMBroadcastReceiver_processBundle(blankActivity, getBaseNotifBundle(), processBundleReceiverCallback);
-      Log.e("OneSignal nan-li", "HERE 1st");
       Awaitility.await()
               .atMost(new Duration(3, TimeUnit.SECONDS))
               .pollInterval(new Duration(100, TimeUnit.MILLISECONDS))
@@ -1432,8 +1432,6 @@ public class GenerateNotificationRunner {
               });
 
       // 4. Receive a notification with all data fields used
-      Log.e("OneSignal nan-li", "HERE Second");
-
       FCMBroadcastReceiver_processBundle(blankActivity, getBundleWithAllOptionsSet());
 
 
@@ -1448,7 +1446,7 @@ public class GenerateNotificationRunner {
       assertEquals("9764eaeb-10ce-45b1-a66d-8f95938aaa51", notification.getNotificationId());
 
       assertEquals(0, notification.getLockScreenVisibility());
-      Log.e("OneSignal nan-li", "getsmalliconaccent color is: " + notification.getSmallIconAccentColor());
+
       assertEquals("FF0000FF", notification.getSmallIconAccentColor());
       assertEquals("703322744261", notification.getFromProjectNumber());
       assertEquals("FFFFFF00", notification.getLedColor());
@@ -1478,7 +1476,6 @@ public class GenerateNotificationRunner {
 
       // 6. Make sure the notification id is not -1 (not restoring)
       assertThat(RemoteNotificationReceivedHandler_notificationReceivedProperties.notificationId, not(-1));
-      Log.e("OneSignal nan-li", "HERE 1st");
 
       // 7. Test a basic notification without anything special
       FCMBroadcastReceiver_processBundle(blankActivity, getBaseNotifBundle());
@@ -2311,17 +2308,57 @@ public class GenerateNotificationRunner {
       assertNotificationDbRecords(1);
    }
 
-   //nan-li
    /**
-    * Small icon accent color uses value in values-night when device in dark mode
-    * shouldUseDarkIconAccentColorInDarkMode
+    * Small icon accent color uses string.xml value in values-night when device in dark mode
     */
    @Test
    @Config(qualifiers = "night")
-   public void testNan() throws Exception {
+   public void shouldUseDarkIconAccentColorInDarkMode_hasMetaData() throws Exception {
+      OneSignal.initWithContext(blankActivity);
+      // Add the 'com.onesignal.NotificationAccentColor.DEFAULT' as 'FF0000AA' meta-data tag
+      OneSignalShadowPackageManager.addManifestMetaData("com.onesignal.NotificationAccentColor.DEFAULT", "FF0000AA");
+
       BigInteger defaultColor = OneSignal_getAccentColor(new JSONObject());
-      System.out.println("nan-li Accent color is: " + defaultColor);
-      assertEquals("FFFF0000", "FFFF0000");
+      assertEquals("FFFF0000", defaultColor.toString(16).toUpperCase()); // first param find from strings.xml instead of hardcode
+   }
+
+   /**
+    * Small icon accent color uses string.xml value in values when device in day (non-dark) mode
+    */
+   @Test
+   public void shouldUseDayIconAccentColorInDayMode() throws Exception {
+      OneSignal.initWithContext(blankActivity);
+      BigInteger defaultColor = OneSignal_getAccentColor(new JSONObject());
+      assertEquals("FF00FF00", defaultColor.toString(16).toUpperCase());
+   }
+
+   /**
+    * Small icon accent color uses value from Manifest if there are no resource strings provided
+    */
+   @Test
+   @Config(shadows = { ShadowResources.class })
+   public void shouldUseManifestIconAccentColor() throws Exception {
+      OneSignal.initWithContext(blankActivity);
+
+      // Add the 'com.onesignal.NotificationAccentColor.DEFAULT' as 'FF0000AA' meta-data tag
+      OneSignalShadowPackageManager.addManifestMetaData("com.onesignal.NotificationAccentColor.DEFAULT", "FF0000AA");
+
+      BigInteger defaultColor = OneSignal_getAccentColor(new JSONObject());
+      assertEquals("FF0000AA", defaultColor.toString(16).toUpperCase());
+   }
+
+   /**
+    * Small icon accent color uses value of 'bgac' if available
+    */
+   @Test
+   public void shouldUseBgacAccentColor_hasMetaData() throws Exception {
+      OneSignal.initWithContext(blankActivity);
+      // Add the 'com.onesignal.NotificationAccentColor.DEFAULT' as 'FF0000AA' meta-data tag
+      OneSignalShadowPackageManager.addManifestMetaData("com.onesignal.NotificationAccentColor.DEFAULT", "FF0000AA");
+      JSONObject fcmJson = new JSONObject();
+      fcmJson.put("bgac", "FF0F0F0F");
+      BigInteger defaultColor = OneSignal_getAccentColor(fcmJson);
+      assertEquals("FF0F0F0F", defaultColor.toString(16).toUpperCase());
    }
 
    /* Helpers */
@@ -2336,7 +2373,7 @@ public class GenerateNotificationRunner {
       bundle.putString("title", "Test H");
       bundle.putString("alert", "Test B");
       bundle.putString("vis", "0");
-      //nan-li commented out: bundle.putString("bgac", "FF0000FF");
+      bundle.putString("bgac", "FF0000FF");
       bundle.putString("from", "703322744261");
       bundle.putString("ledc", "FFFFFF00");
       bundle.putString("bicon", "big_picture");

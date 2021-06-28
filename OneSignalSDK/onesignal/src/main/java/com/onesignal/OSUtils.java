@@ -407,12 +407,7 @@ class OSUtils {
       ApplicationInfo ai;
       PackageManager pm;
       try {
-         pm = context.getPackageManager();
-         ai = pm.getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA);
-         // the below prints NULL
-         Log.e("OneSignal nan-li", "metaData1 " + ai.metaData.getString("com.onesignal.NotificationAccentColor.DEFAULT"));
-         // the below prints 2131689627
-         Log.e("OneSignal nan-li", "metaData " + ai.metaData.getInt("com.onesignal.NotificationAccentColor.DEFAULT"));
+         ai = context.getPackageManager().getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA);
          return ai.metaData;
       } catch (PackageManager.NameNotFoundException e) {
          Log(OneSignal.LOG_LEVEL.ERROR, "Manifest application info not found", e);

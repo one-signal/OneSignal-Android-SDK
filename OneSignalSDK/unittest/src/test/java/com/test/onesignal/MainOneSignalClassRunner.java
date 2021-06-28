@@ -4003,23 +4003,6 @@ public class MainOneSignalClassRunner {
       assertFalse(mainHasFlag);
    }
 
-   /**
-    * Small icon accent color uses value in values-night when device in dark mode
-    * shouldUseDarkIconAccentColorInDarkMode
-    */
-   @Test
-   @Config(qualifiers = "night")
-   public void nan() throws Exception {
-      // Setup - Init
-      OneSignalInit();
-      threadAndTaskWait();
-
-      OSNotification notification = createTestOSNotification();
-      System.out.println("nan-li Accent color is: " + notification.getSmallIconAccentColor());
-      assertEquals("FFFF0000", "FFFF0000");
-   }
-
-
    // ####### Unit test helper methods ########
 
    private static OSNotification createTestOSNotification() throws Exception {
