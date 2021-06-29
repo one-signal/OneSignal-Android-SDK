@@ -42,7 +42,6 @@ import android.os.Build;
 import android.service.notification.StatusBarNotification;
 import android.text.SpannableString;
 import android.text.style.StyleSpan;
-import android.util.Log;
 import android.widget.RemoteViews;
 
 import androidx.annotation.RequiresApi;

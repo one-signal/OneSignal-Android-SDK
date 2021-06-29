@@ -1433,20 +1433,16 @@ public class GenerateNotificationRunner {
 
       // 4. Receive a notification with all data fields used
       FCMBroadcastReceiver_processBundle(blankActivity, getBundleWithAllOptionsSet());
-
-
       threadAndTaskWait();
+
       // 5. Evaluate the notification received within the NotificationProcessingHandler
       OSNotificationReceivedEvent receivedEvent = RemoteNotificationReceivedHandler_notificationReceivedProperties.notification;
       OSNotification notification = receivedEvent.getNotification();
-
-
       assertEquals("Test H", notification.getTitle());
       assertEquals("Test B", notification.getBody());
       assertEquals("9764eaeb-10ce-45b1-a66d-8f95938aaa51", notification.getNotificationId());
 
       assertEquals(0, notification.getLockScreenVisibility());
-
       assertEquals("FF0000FF", notification.getSmallIconAccentColor());
       assertEquals("703322744261", notification.getFromProjectNumber());
       assertEquals("FFFFFF00", notification.getLedColor());

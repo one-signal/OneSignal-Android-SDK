@@ -132,7 +132,6 @@ public class OneSignalPackagePrivateHelper {
       return GenerateNotification.getAccentColor(fcmJson);
    }
 
-
    public static BundleCompat createInternalPayloadBundle(Bundle bundle) {
       BundleCompat retBundle = BundleCompatFactory.getInstance();
       retBundle.putString("json_payload", OneSignalPackagePrivateHelper.bundleAsJSONObject(bundle).toString());
