@@ -7,7 +7,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.onesignal.OSDynamicTriggerController.OSDynamicTriggerControllerObserver;
-import com.onesignal.OneSignalRestClient.ResponseHandler;
 import com.onesignal.language.LanguageContext;
 
 import org.json.JSONArray;
@@ -22,6 +21,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.onesignal.OSInAppMessageRepository.IAM_DATA_RESPONSE_RETRY_KEY;
 
 class OSInAppMessageController extends OSBackgroundManager implements OSDynamicTriggerControllerObserver, OSSystemConditionController.OSSystemConditionObserver {
 
@@ -87,9 +88,9 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
 
     @Nullable
     Date lastTimeInAppDismissed = null;
-    private int htmlNetworkRequestAttemptCount = 0;
 
-    protected OSInAppMessageController(OneSignalDbHelper dbHelper, OSTaskController controller, OSLogger logger, LanguageContext languageContext) {
+    protected OSInAppMessageController(OneSignalDbHelper dbHelper, OSTaskController controller, OSLogger logger,
+                                       OSSharedPreferences sharedPreferences, LanguageContext languageContext) {
         taskController = controller;
         messages = new ArrayList<>();
         dismissedMessages = OSUtils.newConcurrentSet();
@@ -102,58 +103,42 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         this.languageContext = languageContext;
         this.logger = logger;
 
-        Set<String> tempDismissedSet = OneSignalPrefs.getStringSet(
-                OneSignalPrefs.PREFS_ONESIGNAL,
-                OneSignalPrefs.PREFS_OS_DISMISSED_IAMS,
-                null
-        );
+        inAppMessageRepository = getInAppMessageRepository(dbHelper, logger, sharedPreferences);
+        Set<String> tempDismissedSet = inAppMessageRepository.getDismissedMessagesId();
         if (tempDismissedSet != null)
             dismissedMessages.addAll(tempDismissedSet);
 
-        Set<String> tempImpressionsSet = OneSignalPrefs.getStringSet(
-                OneSignalPrefs.PREFS_ONESIGNAL,
-                OneSignalPrefs.PREFS_OS_IMPRESSIONED_IAMS,
-                null
-        );
+        Set<String> tempImpressionsSet = inAppMessageRepository.getImpressionesMessagesId();
         if (tempImpressionsSet != null)
             impressionedMessages.addAll(tempImpressionsSet);
 
-        Set<String> tempPageImpressionsSet = OneSignalPrefs.getStringSet(
-                OneSignalPrefs.PREFS_ONESIGNAL,
-                OneSignalPrefs.PREFS_OS_PAGE_IMPRESSIONED_IAMS,
-                null
-        );
+        Set<String> tempPageImpressionsSet = inAppMessageRepository.getViewPageImpressionedIds();
         if (tempPageImpressionsSet != null)
             viewedPageIds.addAll(tempPageImpressionsSet);
 
-        Set<String> tempClickedMessageIdsSet = OneSignalPrefs.getStringSet(
-                OneSignalPrefs.PREFS_ONESIGNAL,
-                OneSignalPrefs.PREFS_OS_CLICKED_CLICK_IDS_IAMS,
-                null
-        );
+        Set<String> tempClickedMessageIdsSet = inAppMessageRepository.getClickedMessagesId();
         if (tempClickedMessageIdsSet != null)
             clickedClickIds.addAll(tempClickedMessageIdsSet);
 
-        initRedisplayData(dbHelper);
+        initRedisplayData();
     }
 
-    OSInAppMessageRepository getInAppMessageRepository(OneSignalDbHelper dbHelper) {
+    OSInAppMessageRepository getInAppMessageRepository(OneSignalDbHelper dbHelper, OSLogger logger, OSSharedPreferences sharedPreferences) {
         if (inAppMessageRepository == null)
-            inAppMessageRepository = new OSInAppMessageRepository(dbHelper);
+            inAppMessageRepository = new OSInAppMessageRepository(dbHelper, logger, sharedPreferences);
 
         return inAppMessageRepository;
     }
 
-    protected void initRedisplayData(OneSignalDbHelper dbHelper) {
-        inAppMessageRepository = getInAppMessageRepository(dbHelper);
-        Runnable getCachedIAMRunnable =  new BackgroundRunnable() {
+    protected void initRedisplayData() {
+        Runnable getCachedIAMRunnable = new BackgroundRunnable() {
             @Override
             public void run() {
                 super.run();
 
                 synchronized (LOCK) {
                     redisplayedInAppMessages = inAppMessageRepository.getCachedInAppMessages();
-                    OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Retrieved IAMs from DB redisplayedInAppMessages: " + redisplayedInAppMessages.toString());
+                    logger.debug("Retrieved IAMs from DB redisplayedInAppMessages: " + redisplayedInAppMessages.toString());
                 }
             }
         };
@@ -171,7 +156,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
     void executeRedisplayIAMDataDependantTask(Runnable task) {
         synchronized (LOCK) {
             if (shouldRunTaskThroughQueue()) {
-                OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Delaying task due to redisplay data not retrieved yet");
+                logger.debug("Delaying task due to redisplay data not retrieved yet");
                 taskController.addTaskToQueue(task);
             } else {
                 task.run();
@@ -188,16 +173,12 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
     void initWithCachedInAppMessages() {
         // Do not reload from cache if already loaded.
         if (!messages.isEmpty()) {
-            OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "initWithCachedInAppMessages with already in memory messages: " + messages);
+            logger.debug("initWithCachedInAppMessages with already in memory messages: " + messages);
             return;
         }
 
-        String cachedInAppMessageString = OneSignalPrefs.getString(
-                OneSignalPrefs.PREFS_ONESIGNAL,
-                OneSignalPrefs.PREFS_OS_CACHED_IAMS,
-                null
-        );
-        OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "initWithCachedInAppMessages: " + cachedInAppMessageString);
+        String cachedInAppMessageString = inAppMessageRepository.getSavedIAMs();
+        logger.debug("initWithCachedInAppMessages: " + cachedInAppMessageString);
 
         if (cachedInAppMessageString == null || cachedInAppMessageString.isEmpty())
             return;
@@ -221,10 +202,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
      */
     void receivedInAppMessageJson(@NonNull final JSONArray json) throws JSONException {
         // Cache copy for quick cold starts
-        OneSignalPrefs.saveString(
-                OneSignalPrefs.PREFS_ONESIGNAL,
-                OneSignalPrefs.PREFS_OS_CACHED_IAMS,
-                json.toString());
+        inAppMessageRepository.saveIAMs(json.toString());
 
         executeRedisplayIAMDataDependantTask(new Runnable() {
             @Override
@@ -233,7 +211,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
                 try {
                     processInAppMessageJson(json);
                 } catch (JSONException e) {
-                    OneSignal.Log(OneSignal.LOG_LEVEL.ERROR, "ERROR processing InAppMessageJson JSON Response.", e);
+                    logger.error("ERROR processing InAppMessageJson JSON Response.", e);
                 }
             }
         });
@@ -264,13 +242,13 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
     }
 
     private void evaluateInAppMessages() {
-        OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Starting evaluateInAppMessages");
+        logger.debug("Starting evaluateInAppMessages");
 
         if (shouldRunTaskThroughQueue()) {
             taskController.addTaskToQueue(new Runnable() {
                 @Override
                 public void run() {
-                    OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Delaying evaluateInAppMessages due to redisplay data not retrieved yet");
+                    logger.debug("Delaying evaluateInAppMessages due to redisplay data not retrieved yet");
                     evaluateInAppMessages();
                 }
             });
@@ -305,14 +283,6 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         return null;
     }
 
-    private void printHttpSuccessForInAppMessageRequest(String requestType, String response) {
-        logger.debug("Successful post for in-app message " + requestType + " request: " + response);
-    }
-
-    private void printHttpErrorForInAppMessageRequest(String requestType, int statusCode, String response) {
-        logger.error("Encountered a " + statusCode + " error while attempting in-app message " + requestType + " request: " + response);
-    }
-
     void onMessageWasShown(@NonNull final OSInAppMessage message) {
         if (message.isPreview)
             return;
@@ -328,37 +298,20 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         if (variantId == null)
             return;
 
-        try {
-            JSONObject json = new JSONObject() {{
-                put("app_id", OneSignal.appId);
-                put("player_id", OneSignal.getUserId());
-                put("variant_id", variantId);
-                put("device_type", new OSUtils().getDeviceType());
-                put("first_impression", true);
-            }};
+        inAppMessageRepository.sendIAMImpression(OneSignal.appId, OneSignal.getUserId(), variantId,
+                new OSUtils().getDeviceType(), message.messageId, impressionedMessages,
+                new OSInAppMessageRepository.OSInAppMessageRequestResponse() {
+                    @Override
+                    public void onSuccess(String response) {
+                        // Everything handled by repository
+                    }
 
-            OneSignalRestClient.post("in_app_messages/" + message.messageId + "/impression", json, new ResponseHandler() {
-                @Override
-                void onSuccess(String response) {
-                    printHttpSuccessForInAppMessageRequest("impression", response);
-                    OneSignalPrefs.saveStringSet(
-                            OneSignalPrefs.PREFS_ONESIGNAL,
-                            OneSignalPrefs.PREFS_OS_IMPRESSIONED_IAMS,
-                            // Post success, store impressioned messageId to disk
-                            impressionedMessages);
-                }
-
-                @Override
-                void onFailure(int statusCode, String response, Throwable throwable) {
-                    printHttpErrorForInAppMessageRequest("impression", statusCode, response);
-                    // Post failed, impressionedMessage should be removed and this way another post can be attempted
-                    impressionedMessages.remove(message.messageId);
-                }
-            });
-        } catch (JSONException e) {
-            e.printStackTrace();
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.ERROR, "Unable to execute in-app message impression HTTP request due to invalid JSON");
-        }
+                    @Override
+                    public void onFailure(String response) {
+                        // Post failed, impressioned Messages should be removed and this way another post can be attempted
+                        impressionedMessages.remove(message.messageId);
+                    }
+                });
     }
 
     void onPageChanged(@NonNull final OSInAppMessage message, @NonNull final JSONObject eventJson) {
@@ -393,17 +346,17 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
 
     private void logInAppMessagePreviewActions(final OSInAppMessageAction action) {
         if (action.getTags() != null)
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "Tags detected inside of the action click payload, ignoring because action came from IAM preview:: " + action.getTags().toString());
+            logger.debug("Tags detected inside of the action click payload, ignoring because action came from IAM preview:: " + action.getTags().toString());
 
         if (action.getOutcomes().size() > 0)
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "Outcomes detected inside of the action click payload, ignoring because action came from IAM preview: " + action.getOutcomes().toString());
+            logger.debug("Outcomes detected inside of the action click payload, ignoring because action came from IAM preview: " + action.getOutcomes().toString());
 
         // TODO: Add more action payload preview logs here in future
     }
 
     private void beginProcessingPrompts(OSInAppMessage message, final List<OSInAppMessagePrompt> prompts) {
         if (prompts.size() > 0) {
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "IAM showing prompts from IAM: " + message.toString());
+            logger.debug("IAM showing prompts from IAM: " + message.toString());
             // TODO until we don't fix the activity going forward or back dismissing the IAM, we need to auto dismiss
             WebViewManager.dismissCurrentInAppMessage();
             showMultiplePrompts(message, prompts);
@@ -420,13 +373,13 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         }
 
         if (currentPrompt != null) {
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "IAM prompt to handle: " + currentPrompt.toString());
+            logger.debug("IAM prompt to handle: " + currentPrompt.toString());
             currentPrompt.setPrompted(true);
             currentPrompt.handlePrompt(new OneSignal.OSPromptActionCompletionCallback() {
                 @Override
                 public void onCompleted(OneSignal.PromptActionResult result) {
                     currentPrompt = null;
-                    OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "IAM prompt to handle finished with result: " + result);
+                    logger.debug("IAM prompt to handle finished with result: " + result);
 
                     // On preview mode we show informative alert dialogs
                     if (inAppMessage.isPreview && result == OneSignal.PromptActionResult.LOCATION_PERMISSIONS_MISSING_MANIFEST)
@@ -436,7 +389,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
                 }
             });
         } else {
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "No IAM prompt to handle, dismiss message: " + inAppMessage.messageId);
+            logger.debug("No IAM prompt to handle, dismiss message: " + inAppMessage.messageId);
             messageWasDismissed(inAppMessage);
         }
     }
@@ -497,14 +450,6 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         }
     }
 
-    private void saveViewedPageIdsToPrefs() {
-        OneSignalPrefs.saveStringSet(
-                OneSignalPrefs.PREFS_ONESIGNAL,
-                OneSignalPrefs.PREFS_OS_PAGE_IMPRESSIONED_IAMS,
-                // Post success, store impressioned pages to disk
-                viewedPageIds);
-    }
-
     private void fireRESTCallForPageChange(@NonNull final OSInAppMessage message, @NonNull final OSInAppMessagePage page) {
         final String variantId = variantIdForMessage(message);
         if (variantId == null)
@@ -516,39 +461,25 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
 
         // Never send multiple page impressions for the same message UUID unless that page change is from an IAM with redisplay
         if (viewedPageIds.contains(messagePrefixedPageId)) {
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.VERBOSE, "Already sent page impression for id: " + pageId);
+            logger.verbose("Already sent page impression for id: " + pageId);
             return;
         }
 
         viewedPageIds.add(messagePrefixedPageId);
 
-        try {
-            JSONObject json = new JSONObject() {{
-                put("app_id", OneSignal.appId);
-                put("player_id", OneSignal.getUserId());
-                put("variant_id", variantId);
-                put("device_type", new OSUtils().getDeviceType());
-                put("page_id", pageId);
-            }};
+        inAppMessageRepository.sendIAMPageImpression(OneSignal.appId, OneSignal.getUserId(), variantId, new OSUtils().getDeviceType(),
+                message.messageId, pageId, viewedPageIds, new OSInAppMessageRepository.OSInAppMessageRequestResponse() {
+                    @Override
+                    public void onSuccess(String response) {
+                        // Everything handled by repository
+                    }
 
-            OneSignalRestClient.post("in_app_messages/" + message.messageId + "/pageImpression", json, new ResponseHandler() {
-                @Override
-                void onSuccess(String response) {
-                    printHttpSuccessForInAppMessageRequest("page impression", response);
-                    saveViewedPageIdsToPrefs();
-                }
-
-                @Override
-                void onFailure(int statusCode, String response, Throwable throwable) {
-                    printHttpErrorForInAppMessageRequest("page impression", statusCode, response);
-                    // Post failed, viewed page should be removed and this way another post can be attempted
-                    viewedPageIds.remove(messagePrefixedPageId);
-                }
-            });
-        } catch (JSONException e) {
-            e.printStackTrace();
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.ERROR, "Unable to execute in-app message impression HTTP request due to invalid JSON");
-        }
+                    @Override
+                    public void onFailure(String response) {
+                        // Post failed, viewed page should be removed and this way another post can be attempted
+                        viewedPageIds.remove(messagePrefixedPageId);
+                    }
+                });
     }
 
     private void fireRESTCallForClick(@NonNull final OSInAppMessage message, @NonNull final OSInAppMessageAction action) {
@@ -568,39 +499,19 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         // Track clickId per IAM
         message.addClickId(clickId);
 
-        try {
-            JSONObject json = new JSONObject() {{
-                put("app_id", OneSignal.getSavedAppId());
-                put("device_type", new OSUtils().getDeviceType());
-                put("player_id", OneSignal.getUserId());
-                put("click_id", clickId);
-                put("variant_id", variantId);
-                if (action.isFirstClick())
-                    put("first_click", true);
-            }};
+        inAppMessageRepository.sendIAMClick(OneSignal.appId, OneSignal.getUserId(), variantId, new OSUtils().getDeviceType(),
+                message.messageId, clickId, action.isFirstClick(), clickedClickIds, new OSInAppMessageRepository.OSInAppMessageRequestResponse() {
+                    @Override
+                    public void onSuccess(String response) {
+                        // Everything handled by repository
+                    }
 
-            OneSignalRestClient.post("in_app_messages/" + message.messageId + "/click", json, new ResponseHandler() {
-                @Override
-                void onSuccess(String response) {
-                    printHttpSuccessForInAppMessageRequest("engagement", response);
-                    // Persist success click to disk. Id already added to set before making the network call
-                    OneSignalPrefs.saveStringSet(
-                            OneSignalPrefs.PREFS_ONESIGNAL,
-                            OneSignalPrefs.PREFS_OS_CLICKED_CLICK_IDS_IAMS,
-                            clickedClickIds
-                    );
-                }
-
-                @Override
-                void onFailure(int statusCode, String response, Throwable throwable) {
-                    printHttpErrorForInAppMessageRequest("engagement", statusCode, response);
-                    clickedClickIds.remove(action.getClickId());
-                }
-            });
-        } catch (JSONException e) {
-            e.printStackTrace();
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.ERROR, "Unable to execute in-app message action HTTP request due to invalid JSON");
-        }
+                    @Override
+                    public void onFailure(String response) {
+                        clickedClickIds.remove(clickId);
+                        message.removeClickId(clickId);
+                    }
+                });
     }
 
     /**
@@ -625,20 +536,20 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
             message.setDisplayedInSession(savedIAM.isDisplayedInSession());
 
             boolean triggerHasChanged = hasMessageTriggerChanged(message);
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "setDataForRedisplay: " + message.toString() + " triggerHasChanged: " + triggerHasChanged);
+            logger.debug("setDataForRedisplay: " + message.toString() + " triggerHasChanged: " + triggerHasChanged);
 
             // Check if conditions are correct for redisplay
             if (triggerHasChanged &&
                     message.getRedisplayStats().isDelayTimeSatisfied() &&
                     message.getRedisplayStats().shouldDisplayAgain()) {
-                OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "setDataForRedisplay message available for redisplay: " + message.messageId);
+                logger.debug("setDataForRedisplay message available for redisplay: " + message.messageId);
 
                 dismissedMessages.remove(message.messageId);
                 impressionedMessages.remove(message.messageId);
                 // Pages from different IAMs should not impact each other so we can clear the entire
                 // list when an IAM is dismissed or we are re-displaying the same one
                 viewedPageIds.clear();
-                saveViewedPageIdsToPrefs();
+                inAppMessageRepository.saveViewPageImpressionedIds(viewedPageIds);
                 message.clearClickIds();
             }
         }
@@ -680,7 +591,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
                 return;
             }
 
-            OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "displayFirstIAMOnQueue: " + messageDisplayQueue);
+            logger.debug("displayFirstIAMOnQueue: " + messageDisplayQueue);
             // If there are IAMs in the queue and nothing showing, show first in the queue
             if (messageDisplayQueue.size() > 0 && !isInAppMessageShowing()) {
                 logger.debug("No IAM showing currently, showing first item in the queue!");
@@ -714,10 +625,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
             dismissedMessages.add(message.messageId);
             // If failed we will retry on next session
             if (!failed) {
-                OneSignalPrefs.saveStringSet(
-                        OneSignalPrefs.PREFS_ONESIGNAL,
-                        OneSignalPrefs.PREFS_OS_DISMISSED_IAMS,
-                        dismissedMessages);
+                inAppMessageRepository.saveDismissedMessagesId(dismissedMessages);
 
                 // Don't keep track of last displayed time for a preview
                 lastTimeInAppDismissed = new Date();
@@ -731,7 +639,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
     }
 
     void messageWasDismissedByBackPress(@NonNull OSInAppMessage message) {
-        OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "In app message OSInAppMessageController messageWasDismissed by back press: " + message.toString());
+        logger.debug("In app message OSInAppMessageController messageWasDismissed by back press: " + message.toString());
         // IAM was not dismissed by user, will be redisplay again until user dismiss it
         dismissCurrentMessage(message);
     }
@@ -802,17 +710,6 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         logger.debug("persistInAppMessageForRedisplay: " + message.toString() + " with msg array data: " + redisplayedInAppMessages.toString());
     }
 
-    private @Nullable String htmlPathForMessage(OSInAppMessage message) {
-        String variantId = variantIdForMessage(message);
-
-        if (variantId == null) {
-            logger.error("Unable to find a variant for in-app message " + message.messageId);
-            return null;
-        }
-
-        return "in_app_messages/" + message.messageId + "/variants/" + variantId + "/html?app_id=" + OneSignal.appId;
-    }
-
     private void getTagsForLiquidTemplating(@NonNull final OSInAppMessage message, final boolean isPreview) {
         waitForTags = false;
         if (isPreview || message.getHasLiquid()) {
@@ -846,51 +743,46 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
 
         getTagsForLiquidTemplating(message, false);
 
-        String htmlPath = htmlPathForMessage(message);
-        OneSignalRestClient.get(htmlPath, new ResponseHandler() {
-            @Override
-            void onFailure(int statusCode, String response, Throwable throwable) {
-                inAppMessageShowing = false;
+        inAppMessageRepository.getIAMData(OneSignal.appId, message.messageId, variantIdForMessage(message),
+                new OSInAppMessageRepository.OSInAppMessageRequestResponse() {
+                    @Override
+                    public void onSuccess(String response) {
+                        try {
+                            JSONObject jsonResponse = new JSONObject(response);
+                            String htmlStr = jsonResponse.getString("html");
 
-                printHttpErrorForInAppMessageRequest("html", statusCode, response);
-
-                if (!OSUtils.shouldRetryNetworkRequest(statusCode) || htmlNetworkRequestAttemptCount >= OSUtils.MAX_NETWORK_REQUEST_ATTEMPT_COUNT) {
-                    // Failure limit reached, reset
-                    htmlNetworkRequestAttemptCount = 0;
-                    messageWasDismissed(message, true);
-                    return;
-                }
-
-                // Failure limit not reached, increment by 1
-                htmlNetworkRequestAttemptCount++;
-                // Retry displaying the same IAM
-                // Using the queueMessageForDisplay method follows safety checks to prevent issues
-                // like having 2 IAMs showing at once or duplicate IAMs in the queue
-                queueMessageForDisplay(message);
-            }
-
-            @Override
-            void onSuccess(String response) {
-                // Successful request, reset count
-                htmlNetworkRequestAttemptCount = 0;
-
-                try {
-                    JSONObject jsonResponse = new JSONObject(response);
-                    String htmlStr = jsonResponse.getString("html");
-
-                    double displayDuration = jsonResponse.optDouble("display_duration");
-                    message.setDisplayDuration(displayDuration);
-                    if (waitForTags) {
-                        pendingHTMLContent = htmlStr;
-                        return;
+                            double displayDuration = jsonResponse.optDouble("display_duration");
+                            message.setDisplayDuration(displayDuration);
+                            if (waitForTags) {
+                                pendingHTMLContent = htmlStr;
+                                return;
+                            }
+                            OneSignal.getSessionManager().onInAppMessageReceived(message.messageId);
+                            WebViewManager.showHTMLString(message, taggedHTMLString(htmlStr));
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
                     }
-                    OneSignal.getSessionManager().onInAppMessageReceived(message.messageId);
-                    WebViewManager.showHTMLString(message, taggedHTMLString(htmlStr));
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            }
-        }, null);
+
+                    @Override
+                    public void onFailure(String response) {
+                        inAppMessageShowing = false;
+                        try {
+                            JSONObject jsonResponse = new JSONObject(response);
+                            boolean retry = jsonResponse.getBoolean(IAM_DATA_RESPONSE_RETRY_KEY);
+                            if (retry) {
+                                // Retry displaying the same IAM
+                                // Using the queueMessageForDisplay method follows safety checks to prevent issues
+                                // like having 2 IAMs showing at once or duplicate IAMs in the queue
+                                queueMessageForDisplay(message);
+                            } else {
+                                messageWasDismissed(message, true);
+                            }
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
     }
 
     @NonNull
@@ -906,17 +798,9 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
         final OSInAppMessage message = new OSInAppMessage(true);
         getTagsForLiquidTemplating(message, true);
 
-        String htmlPath = "in_app_messages/device_preview?preview_id=" + previewUUID + "&app_id=" + OneSignal.appId;
-        OneSignalRestClient.get(htmlPath, new ResponseHandler() {
+        inAppMessageRepository.getIAMPreviewData(OneSignal.appId, previewUUID, new OSInAppMessageRepository.OSInAppMessageRequestResponse() {
             @Override
-            void onFailure(int statusCode, String response, Throwable throwable) {
-                printHttpErrorForInAppMessageRequest("html", statusCode, response);
-
-                dismissCurrentMessage(null);
-            }
-
-            @Override
-            void onSuccess(String response) {
+            public void onSuccess(String response) {
                 try {
                     JSONObject jsonResponse = new JSONObject(response);
                     String htmlStr = jsonResponse.getString("html");
@@ -932,7 +816,12 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
                     e.printStackTrace();
                 }
             }
-        }, null);
+
+            @Override
+            public void onFailure(String response) {
+                dismissCurrentMessage(null);
+            }
+        });
     }
 
     /**
@@ -965,7 +854,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
      */
     @Override
     public void messageDynamicTriggerCompleted(String triggerId) {
-        OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "messageDynamicTriggerCompleted called with triggerId: " + triggerId);
+        logger.debug("messageDynamicTriggerCompleted called with triggerId: " + triggerId);
         Set<String> triggerIds = new HashSet<>();
         triggerIds.add(triggerId);
         makeRedisplayMessagesAvailableWithTriggers(triggerIds);
@@ -980,7 +869,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
      */
     @Override
     public void messageTriggerConditionChanged() {
-        OneSignal.onesignalLog(OneSignal.LOG_LEVEL.DEBUG, "messageTriggerConditionChanged called");
+        logger.debug("messageTriggerConditionChanged called");
 
         // This method is called when a time-based trigger timer fires, meaning the message can
         //  probably be shown now. So the current message conditions should be re-evaluated
@@ -1035,7 +924,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
             taskController.addTaskToQueue(new Runnable() {
                 @Override
                 public void run() {
-                    OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Delaying addTriggers due to redisplay data not retrieved yet");
+                    logger.debug("Delaying addTriggers due to redisplay data not retrieved yet");
                     checkRedisplayMessagesAndEvaluate(newTriggers.keySet());
                 }
             });
@@ -1051,7 +940,7 @@ class OSInAppMessageController extends OSBackgroundManager implements OSDynamicT
             taskController.addTaskToQueue(new Runnable() {
                 @Override
                 public void run() {
-                    OneSignal.Log(OneSignal.LOG_LEVEL.DEBUG, "Delaying removeTriggersForKeys due to redisplay data not retrieved yet");
+                    logger.debug("Delaying removeTriggersForKeys due to redisplay data not retrieved yet");
                     checkRedisplayMessagesAndEvaluate(keys);
                 }
             });
